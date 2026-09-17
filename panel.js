@@ -31,7 +31,9 @@ const MAX_SIDEBAR_WIDTH_RATIO = 0.7;
 const DEFAULT_SIDEBAR_WIDTH = 280;
 
 const requests = new Map();
+const HIGHLIGHTED_META_LABELS = new Set([ 'Track event', 'Visitor', 'Account', 'Event type' ]);
 let selectedId = null;
+let renderedDetailId = null;
 let searchQuery = '';
 let copyStatusTimeout = null;
 
@@ -51,8 +53,8 @@ port.onMessage.addListener((message) => {
 
     if (message.type === 'request') {
         addRequest(message.item);
+        selectedId = message.item.id;
         renderList();
-        selectRequest(message.item.id);
         return;
     }
 
@@ -64,8 +66,7 @@ port.onMessage.addListener((message) => {
     }
 
     if (message.type === 'decode-error') {
-        pasteErrorEl.textContent = message.error;
-        pasteErrorEl.classList.remove('hidden');
+        showPasteError(message.error);
     }
 
 });
@@ -84,8 +85,7 @@ pasteToggleEl.addEventListener('click', () => {
     }
 
     hidePasteHint();
-    pasteErrorEl.textContent = '';
-    pasteErrorEl.classList.add('hidden');
+    hidePasteError();
     curlInputEl.focus();
 
     if (!tryPasteIntoTextarea(curlInputEl)) {
@@ -95,7 +95,7 @@ pasteToggleEl.addEventListener('click', () => {
 
 document.getElementById('decode-curl').addEventListener('click', () => {
     hidePasteHint();
-    pasteErrorEl.classList.add('hidden');
+    hidePasteError();
     postToDevtools({
         type: 'decode-curl',
         curl: curlInputEl.value
@@ -105,14 +105,13 @@ document.getElementById('decode-curl').addEventListener('click', () => {
 document.getElementById('clear-curl').addEventListener('click', () => {
     curlInputEl.value = '';
     hidePasteHint();
-    pasteErrorEl.textContent = '';
-    pasteErrorEl.classList.add('hidden');
+    hidePasteError();
     curlInputEl.focus();
 });
 
 searchInputEl.addEventListener('input', () => {
-    searchQuery = searchInputEl.value.trim().toLowerCase();
-    renderList();
+    searchQuery = searchInputEl.value.trim();
+    renderList({ updateDetail: false });
 });
 
 copyJsonButtonEl.addEventListener('click', () => {
@@ -176,8 +175,17 @@ function postToDevtools (message) {
 }
 
 function showConnectionLostMessage () {
-    pasteErrorEl.textContent = 'Connection lost. Close and reopen the Decipher JZB panel.';
+    showPasteError('Connection lost. Close and reopen the Decipher JZB panel.');
+}
+
+function showPasteError (message) {
+    pasteErrorEl.textContent = message;
     pasteErrorEl.classList.remove('hidden');
+}
+
+function hidePasteError () {
+    pasteErrorEl.textContent = '';
+    pasteErrorEl.classList.add('hidden');
 }
 
 function showPasteHint (message) {
@@ -196,20 +204,7 @@ function addRequest (item) {
 }
 
 function trimRequests () {
-    if (requests.size <= JzbDecoder.MAX_CAPTURED_REQUESTS) {
-        return;
-    }
-
-    const sorted = [ ...requests.values() ].sort((left, right) => right.capturedAt - left.capturedAt);
-    const keepIds = new Set(
-        sorted.slice(0, JzbDecoder.MAX_CAPTURED_REQUESTS).map((item) => item.id)
-    );
-
-    for (const id of requests.keys()) {
-        if (!keepIds.has(id)) {
-            requests.delete(id);
-        }
-    }
+    JzbDecoder.trimCapturedRequestMap(requests);
 
     if (selectedId && !requests.has(selectedId)) {
         selectedId = null;
@@ -234,7 +229,9 @@ function syncSelectionToFilter (filteredRequests) {
     selectedId = filteredRequests[0]?.id ?? null;
 }
 
-function renderList () {
+function renderList ({ updateDetail = true } = {}) {
+    const previousSelectedId = selectedId;
+
     requestListEl.querySelectorAll('.request-item').forEach((node) => node.remove());
     requestListEl.querySelectorAll('.filter-empty').forEach((node) => node.remove());
 
@@ -242,8 +239,9 @@ function renderList () {
 
     if (!requests.size) {
         emptyStateEl.classList.remove('hidden');
-        emptyStateEl.innerHTML = 'Listening for network requests with <code>jzb=</code> in the URL.';
-        renderDetail();
+        if (updateDetail || selectedId !== renderedDetailId) {
+            renderDetail();
+        }
         return;
     }
 
@@ -255,7 +253,9 @@ function renderList () {
         message.className = 'filter-empty';
         message.textContent = `No requests match "${searchQuery}".`;
         requestListEl.appendChild(message);
-        renderDetail();
+        if (updateDetail || selectedId !== previousSelectedId || selectedId !== renderedDetailId) {
+            renderDetail();
+        }
         return;
     }
 
@@ -275,24 +275,38 @@ function renderList () {
         subtitle.className = 'request-subtitle';
         subtitle.textContent = item.error
             ? item.error
-            : `${item.method} · ${formatTime(item.capturedAt)} · ${item.requestUrl}`;
+            : `${item.method} · ${JzbDecoder.formatTimestamp(item.capturedAt, { timeOnly: true })} · ${item.requestUrl}`;
 
         button.append(label, subtitle);
         button.addEventListener('click', () => selectRequest(item.id));
         requestListEl.appendChild(button);
     });
 
-    renderDetail();
+    if (updateDetail || selectedId !== previousSelectedId || selectedId !== renderedDetailId) {
+        renderDetail();
+    }
 }
 
 function selectRequest (id) {
+    if (selectedId === id) {
+        return;
+    }
+
+    const previousButton = selectedId
+        ? requestListEl.querySelector(`.request-item[data-id="${selectedId}"]`)
+        : null;
+    const nextButton = requestListEl.querySelector(`.request-item[data-id="${id}"]`);
+
+    previousButton?.classList.remove('selected');
+    nextButton?.classList.add('selected');
     selectedId = id;
-    renderList();
+    renderDetail();
 }
 
 function renderDetail () {
     const item = selectedId ? requests.get(selectedId) : null;
     hideCopyStatus();
+    renderedDetailId = item?.id ?? null;
 
     if (!item) {
         detailEmptyEl.classList.remove('hidden');
@@ -308,12 +322,12 @@ function renderDetail () {
     const rows = [
         [ 'Label', item.label ],
         [ 'Method', item.method ],
-        [ 'Captured', formatTime(item.capturedAt) ],
+        [ 'Captured', JzbDecoder.formatTimestamp(item.capturedAt) ],
         [ 'Event type', summary.type || '—' ],
         [ 'Track event', summary.trackEventName || '—' ],
         [ 'Visitor', summary.visitorId || '—' ],
         [ 'Account', summary.accountId || '—' ],
-        [ 'Browser time', summary.browserTime ? new Date(summary.browserTime).toLocaleString() : '—' ],
+        [ 'Browser time', JzbDecoder.formatTimestamp(summary.browserTime) || '—' ],
         [ 'Sequence', summary.sequence ?? '—' ],
         [ 'Request URL', item.requestUrl ]
     ];
@@ -327,7 +341,7 @@ function renderDetail () {
         labelEl.textContent = label;
 
         const valueEl = document.createElement('div');
-        valueEl.className = `meta-value${isHighlightedMetaLabel(label) ? ' meta-value-highlight' : ''}`;
+        valueEl.className = `meta-value${HIGHLIGHTED_META_LABELS.has(label) ? ' meta-value-highlight' : ''}`;
         valueEl.textContent = value ?? '—';
 
         row.append(labelEl, valueEl);
@@ -342,10 +356,6 @@ function renderDetail () {
     }
 
     detailJsonEl.innerHTML = JzbDecoder.highlightJson(item.payload);
-}
-
-function isHighlightedMetaLabel (label) {
-    return [ 'Track event', 'Visitor', 'Account', 'Event type' ].includes(label);
 }
 
 function showCopyStatus (message) {
@@ -368,10 +378,6 @@ function hideCopyStatus () {
         clearTimeout(copyStatusTimeout);
         copyStatusTimeout = null;
     }
-}
-
-function formatTime (timestamp) {
-    return new Date(timestamp).toLocaleTimeString();
 }
 
 function getSidebarWidth () {

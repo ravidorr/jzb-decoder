@@ -70,10 +70,24 @@ const JzbDecoder = (() => {
             .trim();
     }
 
+    function unquoteCurlValue (value) {
+        if (!value) return value;
+
+        const trimmed = value.trim();
+
+        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+            (trimmed.startsWith('\'') && trimmed.endsWith('\''))) {
+            return trimmed.slice(1, -1);
+        }
+
+        return trimmed;
+    }
+
     function decodeJzbParam (value) {
         if (!value) return null;
 
-        const trimmed = value.replace(/[\\'"`,]+$/g, '').replace(/^[\\'"`,]+/g, '');
+        const stripped = value.replace(/[\\'"`,]+$/g, '').replace(/^[\\'"`,]+/g, '');
+        const trimmed = unquoteCurlValue(stripped);
 
         try {
             return decodeURIComponent(trimmed);
@@ -94,21 +108,8 @@ const JzbDecoder = (() => {
         return null;
     }
 
-    function unquoteCurlValue (value) {
-        if (!value) return value;
-
-        const trimmed = value.trim();
-
-        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-            (trimmed.startsWith('\'') && trimmed.endsWith('\''))) {
-            return trimmed.slice(1, -1);
-        }
-
-        return trimmed;
-    }
-
-    function extractUrlsFromCurl (curlText) {
-        const normalized = normalizeCurlText(curlText);
+    function extractUrlsFromCurl (curlText, normalizedText) {
+        const normalized = normalizedText ?? normalizeCurlText(curlText);
         const urls = new Set();
 
         const patterns = [
@@ -141,7 +142,7 @@ const JzbDecoder = (() => {
 
         if (direct) return direct;
 
-        for (const url of extractUrlsFromCurl(curlText)) {
+        for (const url of extractUrlsFromCurl(curlText, normalized)) {
             const fromUrl = extractJzbFromUrl(url);
 
             if (fromUrl) return fromUrl;
@@ -169,13 +170,48 @@ const JzbDecoder = (() => {
         }));
     }
 
-    function formatTimestamp (ms) {
+    function formatTimestamp (ms, { timeOnly = false } = {}) {
         if (!ms) return '';
 
         try {
-            return new Date(ms).toLocaleString();
+            const date = new Date(ms);
+
+            return timeOnly ? date.toLocaleTimeString() : date.toLocaleString();
         } catch {
             return String(ms);
+        }
+    }
+
+    function createCapturedItemId () {
+        return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function formatError (error) {
+        return error?.message || String(error);
+    }
+
+    function trimCapturedRequestArray (items, max = MAX_CAPTURED_REQUESTS) {
+        if (items.length > max) {
+            items.length = max;
+        }
+    }
+
+    function trimCapturedRequestMap (requests, max = MAX_CAPTURED_REQUESTS) {
+        if (requests.size <= max) {
+            return;
+        }
+
+        const keepIds = new Set(
+            [ ...requests.values() ]
+                .sort((left, right) => right.capturedAt - left.capturedAt)
+                .slice(0, max)
+                .map((item) => item.id)
+        );
+
+        for (const id of requests.keys()) {
+            if (!keepIds.has(id)) {
+                requests.delete(id);
+            }
         }
     }
 
@@ -221,11 +257,24 @@ const JzbDecoder = (() => {
         return haystack.includes(query.toLowerCase());
     }
 
+    function buildErrorCapturedItem ({ requestUrl, method, error, id, capturedAt }) {
+        return {
+            id: id || createCapturedItemId(),
+            capturedAt: capturedAt || Date.now(),
+            requestUrl,
+            method,
+            error: formatError(error),
+            payload: null,
+            summary: [],
+            label: 'Decode failed'
+        };
+    }
+
     function buildCapturedItem ({ requestUrl, method, payload, jzb, id, capturedAt }) {
         const summary = summarizePayload(payload);
 
         return {
-            id: id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            id: id || createCapturedItemId(),
             capturedAt: capturedAt || Date.now(),
             requestUrl,
             method,
@@ -244,6 +293,7 @@ const JzbDecoder = (() => {
         'account_id',
         'type'
     ]);
+    const HIGHLIGHT_JSON_KEY_PATTERN = Array.from(HIGHLIGHT_JSON_KEYS).join('|');
 
     function escapeHtml (value) {
         return String(value)
@@ -257,7 +307,7 @@ const JzbDecoder = (() => {
         const json = JSON.stringify(payload, null, 2);
 
         return json.split('\n').map((line) => {
-            const keyMatch = line.match(/^(\s*)("(?:track_event_name|props|visitor_id|account_id|type)")(\s*:\s*)(.*)$/);
+            const keyMatch = line.match(new RegExp(`^(\\s*)("(?:${HIGHLIGHT_JSON_KEY_PATTERN})")(\\s*:\\s*)(.*)$`));
 
             if (!keyMatch) {
                 return escapeHtml(line);
@@ -284,8 +334,13 @@ const JzbDecoder = (() => {
         extractUrlsFromCurl,
         summarizePayload,
         formatTimestamp,
+        formatError,
+        createCapturedItemId,
+        trimCapturedRequestArray,
+        trimCapturedRequestMap,
         buildRequestLabel,
         buildCapturedItem,
+        buildErrorCapturedItem,
         matchesCapturedRequestSearch,
         highlightJson
     };

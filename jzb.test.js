@@ -42,6 +42,10 @@ function buildWrappedJzb (payload) {
         formatTimestamp,
         buildRequestLabel,
         buildCapturedItem,
+        buildErrorCapturedItem,
+        formatError,
+        trimCapturedRequestArray,
+        trimCapturedRequestMap,
         matchesCapturedRequestSearch,
         highlightJson
     } = localThis.JzbDecoder;
@@ -200,8 +204,35 @@ function buildWrappedJzb (payload) {
     assert.equal(matchesCapturedRequestSearch(searchItem, 'OBJECT ANALYTICS'), true);
 
     assert.match(formatTimestamp(1_700_000_000_000), /\d/);
+    assert.match(formatTimestamp(1_700_000_000_000, { timeOnly: true }), /\d/);
     assert.equal(formatTimestamp(''), '');
     assert.equal(formatTimestamp(null), '');
+
+    const errorItem = buildErrorCapturedItem({
+        requestUrl: 'https://example.com/beacon?jzb=bad',
+        method: 'GET',
+        error: new Error('decode failed')
+    });
+    assert.equal(errorItem.label, 'Decode failed');
+    assert.equal(errorItem.error, 'decode failed');
+    assert.equal(errorItem.payload, null);
+    assert.equal(formatError(new Error('boom')), 'boom');
+
+    const cappedItems = [
+        { id: 'new', capturedAt: 2 },
+        { id: 'old', capturedAt: 1 }
+    ];
+    trimCapturedRequestArray(cappedItems, 1);
+    assert.equal(cappedItems.length, 1);
+    assert.equal(cappedItems[0].id, 'new');
+
+    const cappedMap = new Map([
+        [ 'old', { id: 'old', capturedAt: 1 } ],
+        [ 'new', { id: 'new', capturedAt: 2 } ]
+    ]);
+    trimCapturedRequestMap(cappedMap, 1);
+    assert.equal(cappedMap.size, 1);
+    assert.equal(cappedMap.has('new'), true);
 
     const highlighted = highlightJson(payload);
     assert.match(highlighted, /<span class="json-key">&quot;track_event_name&quot;<\/span>/);

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-17
+
+### Changed
+
+- Consolidated captured-item helpers (`buildErrorCapturedItem`, trim, `formatError`, `formatTimestamp`) in `jzb.js`
+- Panel avoids redundant list/detail re-renders on capture, selection, and filter
+- `highlightJson` key regex derived from a single key set
+
+### Fixed
+
+- Skip URL parsing for network requests that do not contain `jzb=`
+- Avoid double curl text normalization when extracting URLs
+
 ## [1.1.0] - 2026-09-17
 
 ### Added

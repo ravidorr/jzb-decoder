@@ -18,28 +18,13 @@ function safePostMessage (port, message) {
 }
 
 function trimCapturedRequests () {
-    if (capturedRequests.length > JzbDecoder.MAX_CAPTURED_REQUESTS) {
-        capturedRequests.length = JzbDecoder.MAX_CAPTURED_REQUESTS;
-    }
+    JzbDecoder.trimCapturedRequestArray(capturedRequests);
 }
 
 function addCapturedItem (item) {
     capturedRequests.unshift(item);
     trimCapturedRequests();
     safePostMessage(panelPort, { type: 'request', item });
-}
-
-function buildDecodeErrorItem (request, error) {
-    return {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        capturedAt: Date.now(),
-        requestUrl: request.request.url,
-        method: request.request.method,
-        error: error.message || String(error),
-        payload: null,
-        summary: [],
-        label: 'Decode failed'
-    };
 }
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -84,7 +69,7 @@ chrome.runtime.onConnect.addListener((port) => {
             } catch (error) {
                 safePostMessage(port, {
                     type: 'decode-error',
-                    error: error.message || String(error)
+                    error: JzbDecoder.formatError(error)
                 });
             }
         }
@@ -98,7 +83,11 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 chrome.devtools.network.onRequestFinished.addListener(async (request) => {
-    const jzb = JzbDecoder.extractJzbFromUrl(request.request.url);
+    const requestUrl = request.request.url;
+
+    if (!requestUrl.includes('jzb=')) return;
+
+    const jzb = JzbDecoder.extractJzbFromUrl(requestUrl);
 
     if (!jzb) return;
 
@@ -107,13 +96,17 @@ chrome.devtools.network.onRequestFinished.addListener(async (request) => {
     try {
         const payload = await JzbDecoder.decodeJzb(jzb);
         item = JzbDecoder.buildCapturedItem({
-            requestUrl: request.request.url,
+            requestUrl,
             method: request.request.method,
             payload,
             jzb
         });
     } catch (error) {
-        item = buildDecodeErrorItem(request, error);
+        item = JzbDecoder.buildErrorCapturedItem({
+            requestUrl,
+            method: request.request.method,
+            error
+        });
     }
 
     addCapturedItem(item);
