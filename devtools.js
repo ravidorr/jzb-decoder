@@ -32,14 +32,18 @@ chrome.runtime.onConnect.addListener((port) => {
 
             try {
                 const payload = await JzbDecoder.decodeJzb(jzb);
-                const item = buildCapturedRequest({
-                    request: {
-                        url: '(pasted curl)',
-                        method: 'PASTE'
+                const urls = JzbDecoder.extractUrlsFromCurl(message.curl);
+                const requestUrl = urls[0] || '(pasted curl)';
+                const item = buildCapturedRequest(
+                    {
+                        request: {
+                            url: requestUrl,
+                            method: 'PASTE'
+                        }
                     },
                     payload,
                     jzb
-                });
+                );
 
                 capturedRequests.unshift(item);
                 port.postMessage({ type: 'request', item });

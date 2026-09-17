@@ -138,18 +138,35 @@ const JzbDecoder = (() => {
     }
 
     function summarizePayload (payload) {
+        if (payload == null) {
+            return [];
+        }
+
         const events = Array.isArray(payload) ? payload : [ payload ];
 
-        return events.map((event) => ({
-            type: event.type,
-            trackEventName: event.track_event_name,
-            visitorId: event.visitor_id,
-            accountId: event.account_id,
-            browserTime: event.browser_time,
+        return events.filter((event) => event != null).map((event) => ({
+            type: inferPayloadType(event),
+            trackEventName: event.track_event_name || event.trackEventName,
+            visitorId: event.visitor_id || event.visitorId || event.metadata?.visitor?.id,
+            accountId: event.account_id || event.accountId || event.metadata?.account?.id,
+            browserTime: event.browser_time || event.browserTime,
             url: event.url,
             sequence: event.sequence,
+            guideCount: Array.isArray(event.cachedGuides) ? event.cachedGuides.length : undefined,
             eventCount: events.length
         }));
+    }
+
+    function inferPayloadType (event) {
+        if (event.type) {
+            return event.type;
+        }
+
+        if (Array.isArray(event.cachedGuides)) {
+            return 'guide-config';
+        }
+
+        return undefined;
     }
 
     function formatTimestamp (ms) {
@@ -167,6 +184,10 @@ const JzbDecoder = (() => {
 
         if (first.trackEventName) {
             return first.trackEventName;
+        }
+
+        if (first.type === 'guide-config' && first.guideCount != null) {
+            return `guide config (${first.guideCount} guides)`;
         }
 
         if (first.type) {
