@@ -38,7 +38,7 @@ function isPanelMessage (message) {
     }
 
     if (message.type === 'decode-curl') {
-        return typeof message.curl === 'string' && message.curl.length <= JzbDecoder.MAX_CURL_TEXT_LENGTH;
+        return typeof message.curl === 'string';
     }
 
     return false;
@@ -85,6 +85,14 @@ chrome.runtime.onConnect.addListener((port) => {
         }
 
         if (message.type === 'decode-curl') {
+            if (JzbDecoder.isCurlTextTooLarge(message.curl)) {
+                safePostMessage(port, {
+                    type: 'decode-error',
+                    error: JzbDecoder.getCurlTextTooLargeError()
+                });
+                return;
+            }
+
             const source = JzbDecoder.extractJzbSourceFromCurl(message.curl);
 
             if (!source) {

@@ -73,6 +73,8 @@ port.onMessage.addListener((message) => {
     if (message.type === 'cleared') {
         requests.clear();
         selectedId = null;
+        hidePasteError();
+        hidePasteHint();
         renderList();
         return;
     }
@@ -106,6 +108,12 @@ pasteToggleEl.addEventListener('click', () => {
 
 document.getElementById('decode-curl').addEventListener('click', () => {
     hidePasteHint();
+
+    if (JzbDecoder.isCurlTextTooLarge(curlInputEl.value)) {
+        showPasteError(JzbDecoder.getCurlTextTooLargeError());
+        return;
+    }
+
     hidePasteError();
     postToDevtools({
         type: 'decode-curl',

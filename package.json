@@ -1,6 +1,6 @@
 {
   "name": "jzb-decoder",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "private": true,
   "description": "Chrome DevTools extension for decoding jzb URL payloads.",
   "license": "MIT",
@@ -19,7 +19,8 @@
     "lint:css": "stylelint \"**/*.css\"",
     "lint:md": "markdownlint-cli2",
     "lint:html": "html-validate panel.html devtools.html",
-    "test": "node jzb.test.js",
+    "test": "node scripts/run-tests.js",
+    "test:coverage": "node scripts/check-coverage.js",
     "check-version": "node scripts/check-version-sync.js",
     "version:patch": "bash scripts/bump-version.sh patch",
     "version:minor": "bash scripts/bump-version.sh minor",
@@ -31,6 +32,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
+    "c8": "^10.1.3",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
     "html-validate": "^11.0.0",

@@ -60,7 +60,8 @@ module.exports = [
     {
         files: [
             'scripts/**/*.js',
-            'jzb.test.js',
+            '*.test.js',
+            'test/**/*.js',
             'eslint.config.js'
         ],
         languageOptions: {

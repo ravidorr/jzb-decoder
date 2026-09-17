@@ -56,6 +56,10 @@ const JzbDecoder = (() => {
 
                 return JSON.parse(text);
             } catch (error) {
+                if (error?.message === 'Decompressed jzb payload exceeds maximum allowed size') {
+                    throw error;
+                }
+
                 lastError = error;
             }
         }
@@ -178,6 +182,14 @@ const JzbDecoder = (() => {
 
     function extractJzbFromCurl (curlText) {
         return extractJzbSourceFromCurl(curlText)?.jzb ?? null;
+    }
+
+    function isCurlTextTooLarge (curlText) {
+        return typeof curlText === 'string' && curlText.length > MAX_CURL_TEXT_LENGTH;
+    }
+
+    function getCurlTextTooLargeError () {
+        return `Pasted cURL exceeds the ${MAX_CURL_TEXT_LENGTH / 1024} KB limit.`;
     }
 
     function summarizePayload (payload) {
@@ -397,6 +409,8 @@ const JzbDecoder = (() => {
     return {
         MAX_CAPTURED_REQUESTS,
         MAX_JZB_BASE64_LENGTH,
+        MAX_COMPRESSED_BYTES,
+        MAX_DECOMPRESSED_CHARS,
         MAX_CURL_TEXT_LENGTH,
         base64UrlToBytes,
         decodeJzb,
@@ -416,7 +430,9 @@ const JzbDecoder = (() => {
         buildErrorCapturedItem,
         matchesCapturedRequestSearch,
         highlightJson,
-        isCapturedItem
+        isCapturedItem,
+        isCurlTextTooLarge,
+        getCurlTextTooLargeError
     };
 })();
 

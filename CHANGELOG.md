@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-17
+
+### Added
+
+- c8 coverage reporting with `npm run test:coverage` and a 90% per-file threshold
+- `devtools.test.js`, `panel.test.js`, and a shared browser test harness
+- CI and pre-commit enforcement of the coverage gate
+
+### Fixed
+
+- Oversized pasted cURL shows panel feedback locally and returns a decode error from devtools
+- Paste error and hint clear when the request list is cleared
+- Decompressed size-limit failures no longer fall through to a second zlib attempt
+
 ## [1.1.4] - 2026-09-17
 
 ### Added

@@ -1,38 +1,24 @@
 const assert = require('assert');
-const zlib = require('zlib');
+const {
+    SAMPLE_JZB,
+    toBase64Url,
+    buildWrappedJzb,
+    buildDeflatedJzb
+} = require('./test/fixtures');
 
 global.self = global;
 require('./jzb.js');
 
-const SAMPLE_JZB = 'eJxtU11v2jwU_ivIlwgIJGkakKatG2X9WlvYWlWtqsjYJ8El2OmxE15W8d97HLh4L3aHn_PxfBzy8sHcrgI2YQ65WLMeW6LZWsDMqQ3Bo9N0HKWjNI7G0ajHGmWVM5gpSRPIGyUNfqtASzNQhoa5EKbW7lBv8b7SDlDzkqo1lgSvnKvsJAh4VQ0OLRuzVCX0i1pJsEdMQjMQZhPYIAlP4ugkDcM0SsbxMA3M8g2Es18bQKuM_nJ2f98fJadJMiSOCk1l2eSDSWWrku9uubfB3mvjoKPpMQojaiMm7VSuAGcKSq-27biUVCMRAlXlaDfhcl3m2sreIJe6kIdpMrKoSyCeFxYE3aBUxcpppYsAg7nfE3QbXtbQDbpd9tpjdq2qRw_4CXpnmS2yzKs8BroBxyV33EO8IGlZliu0zgsmDQvONddsv9-TQY5U_8OXpHWi67LsMXd4sFCfzy_VdCbWz9txtJ6S0hxpQ1u8TcZ_0STDmzB82uY__LXak2fQeL4j012bbeeMDrZzSthOv3OEBAJ34POxYH3u7daHKL8p5Nt1MXuKks2vxIfjNt6GWHGtwR98ATkgtv8AbH8CEloot6qX_saMXCEIg5ISbLfGMJ3POLq36-FW3-9cO3ls-P0_9n_0WSg25GdW8sJecLvyGsWof3dz0X84l9o9o3g8aXSmrur_dk_z0F5NF_HPs_e7avi9jNsF7zVoQWHECX0NO-ePdjpO96-fmeoPRQ';
 const GUIDE_JZB = 'eJx9lNtzokgUh_8XnkOkrzS-4QXviCY4mq0tCgGRgIA0F-PW_O_TZmazVVuEF4o6nvP9vjp2849URzwqs2LmS33JscbmaO28OlacX28fgwAsDOlJcj0vq9Ly0ZJWSfIkVUUius9lmfN-r9c0zXMepH72HGU90Z4l_u4_6O-JMroE9ywN1qcTD0qpLwOmPEmXoHR9t3Sl_pfH4zXqcEncNKzcMBAdQSr9_JL7d-4RJ6q5WwRpqX_9Jkoi6DEF1J6i9aACqaDVQcGjLBVl-IwweFacvMh8OcoeZM_1zoE_qSI_4FL_rz9egMZ0NJxcrenptjThj9yeFXhRLa2t96nHSzt_RPm6yAUqYoxCDAhF4H_ysv0iUv5QhyGDmp9veLM9669XbFmJdTgviXb-nqoRxCDqoo60eHmtt95GX72Hr1VuzIl5HBZob-ptVIURRDWoCd8u6szIqx9yNDAzebLSmONp09C_W-_mmLVRKWQAEkXBKu6irqZH_mEvoomLZ7lrj3E4XczXW2WttVIJpABCSjSVdVFNVLjvo3C3iQ0gp80IurUx4dSdD8etVBUjBSIVgc69vil3cvN0z5i4PnfHpFaafKnT5TtbfftvQRUCDLuoHpm-zdEUGjuTkpqnAb9cNPNufiStrp9UpGIA1C7qeW-EzWq-bhYlg77t83rlHNVw6qxb9_r7vGIqnl3UiFf3wYtdJ9Z5BxoWI7Zno-Npa-qtG2CAEEW4Etx5BuLEm8nxYVTOB8ppvPQGvjPYJWXG1lm7q6ooACNItS5qwWaTRTYfngZvo7v7or-e-MaTHaXS-fd7hUCD4gv1PbUqjld2uA3PkYm3vEny_fV43xjH9SFuo6pClKiaSrtdb2iHdjS-TG26vzX2ZVLr13wIVvLh0Hq3sLheAGOISBv175-_ADJ7z-M';
 const SEGMENTFLAG_JZB = 'eJx9jcGuwiAQRf9l1hXaajSvO42aGBNfF-4JKaQScUAKrcb03wsLu3Q3ufeeMx_oVae8cScBFbD6cNn_syur7_b5eu9kcT5CBrxpTECfJhi0zuAhPRfcc6hmPp3qh0NzbANvZVxIhHGWfrkkjqnlTqLfzl2M4qNEFRua_9EyL9fR1kvXKYMxLslyVZCcWWfEQplkDk7H4ua97SpKh2EgVqIwRBkK4wTQ1k6O';
 const LOAD_JZB = 'eJzdVVtTGj8U_ypOnkHYcnH1TQWmyFRptf9qO_9hstnDkiGbrMlZYXX47p7NokWmOtqpfSg8kOy5_C45ZH_cMSwyYAdMGR6zGousWTiwE5QpPQ32wv1up9Vqt4Juu8ZupJNo7ETGVDAZ9097Z5OLyXieXS-LIwhGA2rAhTC5Rp-jc6VqLLeK0meImTtoNBaLxW4GOja70jQoP7Mmc-zgzhNYw4bNcEURbkHjBY-Gj62w2rBgfjIetO3gCs6jzugopD5Ty1PwwbacHo4uo-vTfnscC7GgoAPnpNE-fLrsqe5tES-_3wb5UPUpnGNaMhAzrjWUZHvSgkBGJBwkKbEYKJ64j9zNKKiH1lyehXEwhONvXz7hKCw6YXL-Ify8d3I-t12IZNY8vom6X42Hvs5BC1LVJHcLBBLb6nZWtUfnp0bk7gXr6fvO1iO3CWC1SqjgkIIeiH6FohRmsC6MmUuoZ0ZJUdSV1HOKokRFZCs0jmh9v5mF6XO4ChKuGlWzqlej9DkthjqGJekmyJlU8XpLpuGSqLFjX7Ez9iUleT8dfQX-6CreveF_D8yNBrS5wwe-CNTlQc1zxDd5EPAWj7chvglsSzRtXwuWWJNndDYaudRgNw_MxfM6yGSGO-uNMCpPdTlqf179NjDN8l_B2VT-jmjvOzFRee_YUs-GPLpycCcyiCYtD3Bh6p5BuY5yeqpdffqsx-VNKSserPnS_-sNo0ZWO0p8QvNVw91sPcUM938NenTWu_ot57c1rX5-_r3XCIldv0aCzn579f893ZaGgA';
 
-function toBase64Url (buffer) {
-    return buffer
-        .toString('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/g, '');
-}
-
-function buildWrappedJzb (payload) {
-    const deflated = zlib.deflateSync(JSON.stringify(payload));
-    const wrapped = Buffer.concat([
-        Buffer.from([ 0x78, 0x01 ]),
-        deflated,
-        Buffer.from([ 0, 0, 0, 0 ])
-    ]);
-
-    return toBase64Url(wrapped);
-}
-
-(async function runTests () {
-    const localThis = this;
+async function runJzbTests () {
     const {
         MAX_CAPTURED_REQUESTS,
         MAX_JZB_BASE64_LENGTH,
+        MAX_COMPRESSED_BYTES,
+        MAX_DECOMPRESSED_CHARS,
         MAX_CURL_TEXT_LENGTH,
         base64UrlToBytes,
         decodeJzb,
@@ -51,8 +37,10 @@ function buildWrappedJzb (payload) {
         trimCapturedRequestMap,
         matchesCapturedRequestSearch,
         highlightJson,
-        isCapturedItem
-    } = localThis.JzbDecoder;
+        isCapturedItem,
+        isCurlTextTooLarge,
+        getCurlTextTooLargeError
+    } = global.JzbDecoder;
 
     assert.equal(MAX_CAPTURED_REQUESTS, 200);
 
@@ -242,6 +230,12 @@ function buildWrappedJzb (payload) {
     assert.equal(cappedMap.size, 1);
     assert.equal(cappedMap.has('new'), true);
 
+    const unchangedMap = new Map([
+        [ 'only', { id: 'only', capturedAt: 1 } ]
+    ]);
+    trimCapturedRequestMap(unchangedMap, MAX_CAPTURED_REQUESTS);
+    assert.equal(unchangedMap.size, 1);
+
     const highlighted = highlightJson(payload);
     assert.match(highlighted, /<span class="json-key">&quot;track_event_name&quot;<\/span>/);
     assert.match(highlighted, /<span class="json-value json-value-visitor_id">/);
@@ -255,6 +249,35 @@ function buildWrappedJzb (payload) {
     assert.ok(maliciousHtml.includes('&lt;'));
     assert.ok(maliciousHtml.includes('&quot;'));
 
+    const plainLine = highlightJson({ sequence: 1 });
+    assert.ok(!plainLine.includes('<span class="json-key">'));
+    assert.ok(plainLine.includes('sequence'));
+
+    assert.equal(formatError('plain failure'), 'plain failure');
+
+    assert.deepEqual(
+        extractJzbSourceFromCurl(`?jzb=${SAMPLE_JZB}`),
+        { jzb: SAMPLE_JZB, requestUrl: '(pasted curl)' }
+    );
+
+    assert.deepEqual(
+        extractJzbSourceFromCurl('?jzb=%'),
+        { jzb: '%', requestUrl: '(pasted curl)' }
+    );
+
+    const singleQuotedUrlCurl = `curl --url '${`https://example.com/beacon?jzb=${SAMPLE_JZB}`}'`;
+    assert.equal(extractJzbFromCurl(singleQuotedUrlCurl), SAMPLE_JZB);
+
+    await assert.rejects(() => decodeJzb(toBase64Url(Buffer.from([ 0x00, 0x01, 0x02, 0x03, 0x04 ]))));
+    await assert.rejects(() => decodeJzb(buildDeflatedJzb('not-json')));
+
+    const originalToLocaleString = Date.prototype.toLocaleString;
+    Date.prototype.toLocaleString = () => {
+        throw new Error('locale unavailable');
+    };
+    assert.equal(formatTimestamp(1), '1');
+    Date.prototype.toLocaleString = originalToLocaleString;
+
     const bytes = base64UrlToBytes(SAMPLE_JZB);
     assert.ok(bytes instanceof Uint8Array);
 
@@ -264,11 +287,41 @@ function buildWrappedJzb (payload) {
     );
 
     assert.equal(extractJzbSourceFromCurl('a'.repeat(MAX_CURL_TEXT_LENGTH + 1)), null);
+    assert.equal(isCurlTextTooLarge('a'.repeat(MAX_CURL_TEXT_LENGTH + 1)), true);
+    assert.equal(isCurlTextTooLarge('a'.repeat(MAX_CURL_TEXT_LENGTH)), false);
+    assert.match(getCurlTextTooLargeError(), /512 KB/);
 
     assert.equal(isCapturedItem(searchItem), true);
     assert.equal(isCapturedItem(errorItem), true);
     assert.equal(isCapturedItem(null), false);
     assert.equal(isCapturedItem({ id: 'x' }), false);
+    assert.equal(isCapturedItem({
+        id: '',
+        requestUrl: 'https://example.com',
+        method: 'GET',
+        capturedAt: 1,
+        label: 'test',
+        summary: [],
+        payload: {}
+    }), false);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 123,
+        method: 'GET',
+        capturedAt: 1,
+        label: 'test',
+        summary: [],
+        payload: {}
+    }), false);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 'https://example.com',
+        method: null,
+        capturedAt: 1,
+        label: 'test',
+        summary: [],
+        payload: {}
+    }), false);
     assert.equal(isCapturedItem({
         id: 'x',
         requestUrl: 'https://example.com',
@@ -278,9 +331,82 @@ function buildWrappedJzb (payload) {
         summary: [],
         error: 'failed'
     }), true);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 'https://example.com',
+        method: 'GET',
+        capturedAt: 1,
+        label: 'test',
+        summary: [],
+        payload: {},
+        error: null
+    }), true);
+    assert.equal(isCapturedItem({ id: 'x', error: 1 }), false);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 'https://example.com',
+        method: 'GET',
+        capturedAt: 1,
+        label: 'test',
+        summary: [],
+        error: false
+    }), false);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 'https://example.com',
+        method: 'GET',
+        capturedAt: Number.NaN,
+        label: 'test',
+        summary: []
+    }), false);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 'https://example.com',
+        method: 'GET',
+        capturedAt: 1,
+        label: 1,
+        summary: []
+    }), false);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 'https://example.com',
+        method: 'GET',
+        capturedAt: 1,
+        label: 'test',
+        summary: 'not-array'
+    }), false);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 'https://example.com',
+        method: 'GET',
+        capturedAt: 1,
+        label: 'test',
+        summary: [],
+        error: null
+    }), false);
+
+    const compressedAtLimit = toBase64Url(Buffer.alloc(MAX_COMPRESSED_BYTES, 1));
+    assert.equal(base64UrlToBytes(compressedAtLimit).length, MAX_COMPRESSED_BYTES);
+    assert.throws(
+        () => base64UrlToBytes(toBase64Url(Buffer.alloc(MAX_COMPRESSED_BYTES + 1, 1))),
+        /exceeds maximum allowed size/
+    );
+
+    const decompressedAtLimit = buildDeflatedJzb(JSON.stringify('a'.repeat(MAX_DECOMPRESSED_CHARS - 2)));
+    await decodeJzb(decompressedAtLimit);
+    await assert.rejects(
+        () => decodeJzb(buildDeflatedJzb(JSON.stringify('a'.repeat(MAX_DECOMPRESSED_CHARS - 1)))),
+        /Decompressed jzb payload exceeds maximum allowed size/
+    );
 
     console.log('jzb decoder tests passed');
-})().catch((error) => {
-    console.error(error);
-    process.exit(1);
-});
+}
+
+module.exports = runJzbTests;
+
+if (require.main === module) {
+    runJzbTests().catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });
+}
