@@ -54,7 +54,7 @@ port.onMessage.addListener((message) => {
     if (message.type === 'request') {
         addRequest(message.item);
         selectedId = message.item.id;
-        renderList();
+        renderList({ syncSelection: false });
         return;
     }
 
@@ -217,9 +217,9 @@ function trimRequests () {
 }
 
 function getFilteredRequests () {
-    return [ ...requests.values() ].filter((item) => (
-        JzbDecoder.matchesCapturedRequestSearch(item, searchQuery)
-    ));
+    return [ ...requests.values() ]
+        .sort((left, right) => right.capturedAt - left.capturedAt)
+        .filter((item) => JzbDecoder.matchesCapturedRequestSearch(item, searchQuery));
 }
 
 function syncSelectionToFilter (filteredRequests) {
@@ -260,7 +260,7 @@ function createRequestItemButton (item) {
     return button;
 }
 
-function renderList ({ updateDetail = true } = {}) {
+function renderList ({ updateDetail = true, syncSelection = true } = {}) {
     const previousSelectedId = selectedId;
 
     requestListEl.querySelectorAll('.request-item, .filter-empty').forEach((node) => node.remove());
@@ -273,13 +273,19 @@ function renderList ({ updateDetail = true } = {}) {
         emptyStateEl.classList.add('hidden');
 
         if (!filteredRequests.length) {
-            syncSelectionToFilter(filteredRequests);
+            if (syncSelection) {
+                syncSelectionToFilter(filteredRequests);
+            }
+
             const message = document.createElement('div');
             message.className = 'filter-empty';
             message.textContent = `No requests match "${searchQuery}".`;
             requestListEl.appendChild(message);
         } else {
-            syncSelectionToFilter(filteredRequests);
+            if (syncSelection) {
+                syncSelectionToFilter(filteredRequests);
+            }
+
             filteredRequests.forEach((item) => {
                 requestListEl.appendChild(createRequestItemButton(item));
             });

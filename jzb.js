@@ -133,21 +133,30 @@ const JzbDecoder = (() => {
         return [ ...urls ];
     }
 
-    function extractJzbFromCurl (curlText) {
+    function extractJzbSourceFromCurl (curlText) {
         if (!curlText) return null;
 
         const normalized = normalizeCurlText(curlText);
-        const direct = extractJzbFromText(normalized);
-
-        if (direct) return direct;
 
         for (const url of extractUrlsFromCurl(normalized)) {
-            const fromUrl = extractJzbFromUrl(url);
+            const jzb = extractJzbFromUrl(url);
 
-            if (fromUrl) return fromUrl;
+            if (jzb) {
+                return { jzb, requestUrl: url };
+            }
+        }
+
+        const direct = extractJzbFromText(normalized);
+
+        if (direct) {
+            return { jzb: direct, requestUrl: '(pasted curl)' };
         }
 
         return null;
+    }
+
+    function extractJzbFromCurl (curlText) {
+        return extractJzbSourceFromCurl(curlText)?.jzb ?? null;
     }
 
     function summarizePayload (payload) {
@@ -326,6 +335,7 @@ const JzbDecoder = (() => {
         decodeJzb,
         extractJzbFromUrl,
         extractJzbFromCurl,
+        extractJzbSourceFromCurl,
         normalizeCurlText,
         extractUrlsFromCurl,
         summarizePayload,

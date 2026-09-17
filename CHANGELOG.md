@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-09-17
+
+### Fixed
+
+- New captures stay selected in the detail pane when a filter would hide them from the list
+- Clear list ignores in-flight decodes that finish after the user clears captures
+- Paste cURL uses the URL that actually contains `jzb=` for request metadata
+- Live captures appear newest-first in the panel list
+
 ## [1.1.2] - 2026-09-17
 
 ### Changed

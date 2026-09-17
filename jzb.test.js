@@ -36,6 +36,7 @@ function buildWrappedJzb (payload) {
         decodeJzb,
         extractJzbFromUrl,
         extractJzbFromCurl,
+        extractJzbSourceFromCurl,
         normalizeCurlText,
         extractUrlsFromCurl,
         summarizePayload,
@@ -93,6 +94,10 @@ function buildWrappedJzb (payload) {
 
     const jzbOnlyCurl = `curl 'https://example.com/beacon?foo=bar' --get 'https://example.com/other?jzb=${SAMPLE_JZB}'`;
     assert.equal(extractJzbFromCurl(jzbOnlyCurl), SAMPLE_JZB);
+    assert.deepEqual(extractJzbSourceFromCurl(jzbOnlyCurl), {
+        jzb: SAMPLE_JZB,
+        requestUrl: `https://example.com/other?jzb=${SAMPLE_JZB}`
+    });
 
     assert.deepEqual(
         extractUrlsFromCurl('curl \'https://example.com/a\' --url "https://example.com/b"'),

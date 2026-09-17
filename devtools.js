@@ -1,5 +1,6 @@
 const capturedRequests = [];
 let panelPort = null;
+let captureGeneration = 0;
 
 chrome.devtools.panels.create('Decipher JZB', '', 'panel.html', () => {});
 
@@ -17,7 +18,11 @@ function safePostMessage (port, message) {
     }
 }
 
-function addCapturedItem (item) {
+function addCapturedItem (item, generation = captureGeneration) {
+    if (generation !== captureGeneration) {
+        return;
+    }
+
     capturedRequests.unshift(item);
     JzbDecoder.trimCapturedRequestArray(capturedRequests);
     safePostMessage(panelPort, { type: 'request', item });
@@ -53,15 +58,16 @@ chrome.runtime.onConnect.addListener((port) => {
 
     port.onMessage.addListener(async (message) => {
         if (message.type === 'clear') {
+            captureGeneration += 1;
             capturedRequests.length = 0;
             safePostMessage(port, { type: 'cleared' });
             return;
         }
 
         if (message.type === 'decode-curl') {
-            const jzb = JzbDecoder.extractJzbFromCurl(message.curl);
+            const source = JzbDecoder.extractJzbSourceFromCurl(message.curl);
 
-            if (!jzb) {
+            if (!source) {
                 safePostMessage(port, {
                     type: 'decode-error',
                     error: 'No jzb= parameter found in the pasted curl.'
@@ -69,24 +75,22 @@ chrome.runtime.onConnect.addListener((port) => {
                 return;
             }
 
-            try {
-                const payload = await JzbDecoder.decodeJzb(jzb);
-                const urls = JzbDecoder.extractUrlsFromCurl(message.curl);
-                const requestUrl = urls[0] || '(pasted curl)';
-                const item = JzbDecoder.buildCapturedItem({
-                    requestUrl,
-                    method: 'PASTE',
-                    payload,
-                    jzb
-                });
+            const generation = captureGeneration;
+            const item = await buildItemFromJzb({
+                requestUrl: source.requestUrl,
+                method: 'PASTE',
+                jzb: source.jzb
+            });
 
-                addCapturedItem(item);
-            } catch (error) {
+            if (item.error) {
                 safePostMessage(port, {
                     type: 'decode-error',
-                    error: JzbDecoder.formatError(error)
+                    error: item.error
                 });
+                return;
             }
+
+            addCapturedItem(item, generation);
         }
     });
 
@@ -106,11 +110,12 @@ chrome.devtools.network.onRequestFinished.addListener(async (request) => {
 
     if (!jzb) return;
 
+    const generation = captureGeneration;
     const item = await buildItemFromJzb({
         requestUrl,
         method: request.request.method,
         jzb
     });
 
-    addCapturedItem(item);
+    addCapturedItem(item, generation);
 });
