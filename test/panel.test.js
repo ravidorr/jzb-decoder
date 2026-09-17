@@ -25,9 +25,11 @@ async function runPanelTests () {
 
         await panelPort.send(null);
         await panelPort.send({ type: 'init', requests: 'not-an-array' });
-        await panelPort.send({ type: 'request', item: { id: 'bad' } });
+        assert.match(dom.elements[ 'paste-error' ].textContent, /invalid session data/i);
 
+        await panelPort.send({ type: 'request', item: { id: 'bad' } });
         assert.equal(dom.elements[ 'request-list' ].children.length, 0);
+        assert.match(dom.elements[ 'paste-error' ].textContent, /invalid captured request/i);
     });
 
     localThis.test('renders init and request messages', async () => {
@@ -76,6 +78,33 @@ async function runPanelTests () {
 
         assert.equal(postedToDevtools.length, 1);
         assert.equal(postedToDevtools[ 0 ].type, 'decode-curl');
+        assert.equal(dom.elements[ 'decode-curl' ].disabled, true);
+    });
+
+    localThis.test('ignores duplicate decode clicks while a decode is in flight', async () => {
+        resetExtensionModules();
+        const { dom, postedToDevtools } = loadPanel();
+
+        dom.elements[ 'curl-input' ].value = buildSampleCurl();
+        dom.elements[ 'decode-curl' ].click();
+        dom.elements[ 'decode-curl' ].click();
+
+        assert.equal(postedToDevtools.length, 1);
+        assert.equal(dom.elements[ 'decode-curl' ].disabled, true);
+    });
+
+    localThis.test('re-enables decode after a captured request arrives', async () => {
+        resetExtensionModules();
+        const { panelPort, dom } = loadPanel();
+        const item = buildCapturedItem();
+
+        dom.elements[ 'curl-input' ].value = buildSampleCurl();
+        dom.elements[ 'decode-curl' ].click();
+        assert.equal(dom.elements[ 'decode-curl' ].disabled, true);
+
+        await panelPort.send({ type: 'request', item: { ...item, id: 'decoded-item' } });
+
+        assert.equal(dom.elements[ 'decode-curl' ].disabled, false);
     });
 
     localThis.test('clears paste feedback when the request list is cleared', async () => {
@@ -249,10 +278,13 @@ async function runPanelTests () {
         const item = buildCapturedItem();
 
         await panelPort.send({ type: 'init', requests: [ item ] });
+        dom.elements[ 'request-list' ].querySelector('.request-item').click();
         dom.elements.search.value = 'does-not-match';
         dom.elements.search.dispatchEvent({ type: 'input' });
 
         assert.match(dom.elements[ 'request-list' ].children[ 0 ].textContent, /No requests match/);
+        assert.equal(dom.elements[ 'detail-empty' ].classList.contains('hidden'), false);
+        assert.equal(dom.elements[ 'detail-content' ].classList.contains('hidden'), true);
 
         dom.elements.search.value = '';
         dom.elements.search.dispatchEvent({ type: 'input' });

@@ -1,6 +1,7 @@
 const capturedRequests = [];
 let panelPort = null;
 let captureGeneration = 0;
+let decodeInFlight = false;
 
 chrome.devtools.panels.create('Decipher JZB', '', 'panel.html', () => {});
 
@@ -14,8 +15,30 @@ function safePostMessage (port, message) {
         return true;
     } catch (error) {
         console.error('Failed to notify panel:', error);
+
+        if (port === panelPort) {
+            try {
+                port.disconnect();
+            } catch (disconnectError) {
+                console.error('Failed to disconnect panel port:', disconnectError);
+            }
+
+            panelPort = null;
+        }
+
         return false;
     }
+}
+
+function postDecodeError (port, error, generation = captureGeneration) {
+    if (generation !== captureGeneration) {
+        return;
+    }
+
+    safePostMessage(port, {
+        type: 'decode-error',
+        error
+    });
 }
 
 function addCapturedItem (item, generation = captureGeneration) {
@@ -85,40 +108,41 @@ chrome.runtime.onConnect.addListener((port) => {
         }
 
         if (message.type === 'decode-curl') {
-            if (JzbDecoder.isCurlTextTooLarge(message.curl)) {
-                safePostMessage(port, {
-                    type: 'decode-error',
-                    error: JzbDecoder.getCurlTextTooLargeError()
-                });
+            if (decodeInFlight) {
                 return;
             }
 
-            const source = JzbDecoder.extractJzbSourceFromCurl(message.curl);
-
-            if (!source) {
-                safePostMessage(port, {
-                    type: 'decode-error',
-                    error: 'No jzb= parameter found in the pasted curl.'
-                });
-                return;
-            }
-
+            decodeInFlight = true;
             const generation = captureGeneration;
-            const item = await buildItemFromJzb({
-                requestUrl: source.requestUrl,
-                method: 'PASTE',
-                jzb: source.jzb
-            });
 
-            if (item.error) {
-                safePostMessage(port, {
-                    type: 'decode-error',
-                    error: item.error
+            try {
+                if (JzbDecoder.isCurlTextTooLarge(message.curl)) {
+                    postDecodeError(port, JzbDecoder.getCurlTextTooLargeError(), generation);
+                    return;
+                }
+
+                const source = JzbDecoder.extractJzbSourceFromCurl(message.curl);
+
+                if (!source) {
+                    postDecodeError(port, 'No jzb= parameter found in the pasted curl.', generation);
+                    return;
+                }
+
+                const item = await buildItemFromJzb({
+                    requestUrl: source.requestUrl,
+                    method: 'PASTE',
+                    jzb: source.jzb
                 });
-                return;
-            }
 
-            addCapturedItem(item, generation);
+                if (item.error) {
+                    postDecodeError(port, item.error, generation);
+                    return;
+                }
+
+                addCapturedItem(item, generation);
+            } finally {
+                decodeInFlight = false;
+            }
         }
     });
 

@@ -67,6 +67,33 @@ async function runDevtoolsTests () {
         assert.ok(captured.item.payload);
     });
 
+    localThis.test('ignores stale decode-error after clear', async () => {
+        resetExtensionModules();
+        const harness = loadDevtools();
+        let rejectDecode;
+        const decodePromise = new Promise((_, reject) => {
+            rejectDecode = reject;
+        });
+
+        global.JzbDecoder.decodeJzb = () => decodePromise;
+
+        const port = createMockPort('jzb-panel');
+        harness.connectListeners[ 0 ](port);
+
+        void port.send({
+            type: 'decode-curl',
+            curl: buildSampleCurl()
+        });
+
+        await new Promise((resolve) => setImmediate(resolve));
+        await port.send({ type: 'clear' });
+        rejectDecode(new Error('decode failed'));
+        await decodePromise.catch(() => {});
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(port.messages.filter((message) => message.type === 'decode-error').length, 0);
+    });
+
     localThis.test('ignores stale decodes after clear', async () => {
         resetExtensionModules();
         const harness = loadDevtools();
@@ -85,6 +112,71 @@ async function runDevtoolsTests () {
         void port.send({
             type: 'decode-curl',
             curl: buildSampleCurl()
+        });
+
+        await new Promise((resolve) => setImmediate(resolve));
+        await port.send({ type: 'clear' });
+        resolveDecode(await originalDecode(SAMPLE_JZB));
+        await decodePromise;
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(port.messages.filter((message) => message.type === 'request').length, 0);
+        global.JzbDecoder.decodeJzb = originalDecode;
+    });
+
+    localThis.test('ignores duplicate decode-curl while a decode is in flight', async () => {
+        resetExtensionModules();
+        const harness = loadDevtools();
+        const { decodeJzb } = global.JzbDecoder;
+        const originalDecode = decodeJzb;
+        let resolveDecode;
+        const decodePromise = new Promise((resolve) => {
+            resolveDecode = resolve;
+        });
+
+        global.JzbDecoder.decodeJzb = () => decodePromise;
+
+        const port = createMockPort('jzb-panel');
+        harness.connectListeners[ 0 ](port);
+
+        void port.send({
+            type: 'decode-curl',
+            curl: buildSampleCurl()
+        });
+        void port.send({
+            type: 'decode-curl',
+            curl: buildSampleCurl()
+        });
+
+        await new Promise((resolve) => setImmediate(resolve));
+        resolveDecode(await originalDecode(SAMPLE_JZB));
+        await decodePromise;
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(port.messages.filter((message) => message.type === 'request').length, 1);
+        global.JzbDecoder.decodeJzb = originalDecode;
+    });
+
+    localThis.test('ignores stale network captures after clear', async () => {
+        resetExtensionModules();
+        const harness = loadDevtools();
+        const { decodeJzb } = global.JzbDecoder;
+        const originalDecode = decodeJzb;
+        let resolveDecode;
+        const decodePromise = new Promise((resolve) => {
+            resolveDecode = resolve;
+        });
+
+        global.JzbDecoder.decodeJzb = () => decodePromise;
+
+        const port = createMockPort('jzb-panel');
+        harness.connectListeners[ 0 ](port);
+
+        void harness.networkListeners[ 0 ]({
+            request: {
+                url: `https://example.com/beacon?jzb=${SAMPLE_JZB}`,
+                method: 'GET'
+            }
         });
 
         await new Promise((resolve) => setImmediate(resolve));
@@ -237,6 +329,15 @@ async function runDevtoolsTests () {
         resetExtensionModules();
         const harness = loadDevtools();
         const port = createMockPort('jzb-panel', { throwOnPost: true });
+        harness.connectListeners[ 0 ](port);
+
+        await port.send({ type: 'clear' });
+    });
+
+    localThis.test('survives disconnect failures after postMessage errors', async () => {
+        resetExtensionModules();
+        const harness = loadDevtools();
+        const port = createMockPort('jzb-panel', { throwOnPost: true, throwOnDisconnect: true });
         harness.connectListeners[ 0 ](port);
 
         await port.send({ type: 'clear' });

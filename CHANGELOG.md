@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-17
+
+### Fixed
+
+- Paste decode errors no longer reappear after clearing the request list
+- Rapid Decode clicks no longer create duplicate captured requests
+- DevTools disconnects the panel port when postMessage fails, surfacing connection-lost feedback
+
+### Added
+
+- Integration tests for the devtools-to-panel capture flow
+- Regression tests for stale network captures and filter-empty detail clearing
+
 ## [1.2.0] - 2026-09-17
 
 ### Added

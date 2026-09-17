@@ -14,6 +14,7 @@ const SEGMENTFLAG_JZB = 'eJx9jcGuwiAQRf9l1hXaajSvO42aGBNfF-4JKaQScUAKrcb03wsLu3Q
 const LOAD_JZB = 'eJzdVVtTGj8U_ypOnkHYcnH1TQWmyFRptf9qO_9hstnDkiGbrMlZYXX47p7NokWmOtqpfSg8kOy5_C45ZH_cMSwyYAdMGR6zGousWTiwE5QpPQ32wv1up9Vqt4Juu8ZupJNo7ETGVDAZ9097Z5OLyXieXS-LIwhGA2rAhTC5Rp-jc6VqLLeK0meImTtoNBaLxW4GOja70jQoP7Mmc-zgzhNYw4bNcEURbkHjBY-Gj62w2rBgfjIetO3gCs6jzugopD5Ty1PwwbacHo4uo-vTfnscC7GgoAPnpNE-fLrsqe5tES-_3wb5UPUpnGNaMhAzrjWUZHvSgkBGJBwkKbEYKJ64j9zNKKiH1lyehXEwhONvXz7hKCw6YXL-Ify8d3I-t12IZNY8vom6X42Hvs5BC1LVJHcLBBLb6nZWtUfnp0bk7gXr6fvO1iO3CWC1SqjgkIIeiH6FohRmsC6MmUuoZ0ZJUdSV1HOKokRFZCs0jmh9v5mF6XO4ChKuGlWzqlej9DkthjqGJekmyJlU8XpLpuGSqLFjX7Ez9iUleT8dfQX-6CreveF_D8yNBrS5wwe-CNTlQc1zxDd5EPAWj7chvglsSzRtXwuWWJNndDYaudRgNw_MxfM6yGSGO-uNMCpPdTlqf179NjDN8l_B2VT-jmjvOzFRee_YUs-GPLpycCcyiCYtD3Bh6p5BuY5yeqpdffqsx-VNKSserPnS_-sNo0ZWO0p8QvNVw91sPcUM938NenTWu_ot57c1rX5-_r3XCIldv0aCzn579f893ZaGgA';
 
 async function runJzbTests () {
+    const localThis = this;
     const {
         MAX_CAPTURED_REQUESTS,
         MAX_JZB_BASE64_LENGTH,
@@ -42,362 +43,412 @@ async function runJzbTests () {
         getCurlTextTooLargeError
     } = global.JzbDecoder;
 
-    assert.equal(MAX_CAPTURED_REQUESTS, 200);
+    localThis.test('decodeJzb decodes sample and wrapped payloads', async () => {
+        const payload = await decodeJzb(SAMPLE_JZB);
+        assert.equal(Array.isArray(payload), true);
+        assert.equal(payload[0].type, 'track');
+        assert.equal(payload[0].track_event_name, 'Object Analytics - Object created');
+        assert.equal(payload[0].visitor_id, 'ravidor@pendo.io');
 
-    const payload = await decodeJzb(SAMPLE_JZB);
-    assert.equal(Array.isArray(payload), true);
-    assert.equal(payload[0].type, 'track');
-    assert.equal(payload[0].track_event_name, 'Object Analytics - Object created');
-    assert.equal(payload[0].visitor_id, 'ravidor@pendo.io');
-
-    const wrappedJzb = buildWrappedJzb([ { type: 'wrapped' } ]);
-    const wrappedPayload = await decodeJzb(wrappedJzb);
-    assert.equal(wrappedPayload[ 0 ].type, 'wrapped');
-
-    assert.throws(() => base64UrlToBytes(''), /Missing jzb parameter/);
-    assert.throws(() => base64UrlToBytes('a'), /truncated or malformed/);
-    await assert.rejects(() => decodeJzb('!!!not-valid!!!'));
-
-    const url = `https://data.pendo.io/data/ptm.gif/key?v=1&jzb=${SAMPLE_JZB}`;
-    assert.equal(extractJzbFromUrl(url), SAMPLE_JZB);
-    assert.equal(extractJzbFromUrl('not a url'), null);
-
-    const encodedJzbUrl = `https://example.com/beacon?jzb=${encodeURIComponent(SAMPLE_JZB.slice(0, 80))}`;
-    assert.equal(extractJzbFromUrl(encodedJzbUrl), SAMPLE_JZB.slice(0, 80));
-
-    const curl = `curl 'https://data.pendo.io/data/ptm.gif/key?jzb=${SAMPLE_JZB}&type=track'`;
-    assert.equal(extractJzbFromCurl(curl), SAMPLE_JZB);
-    assert.equal(extractJzbFromCurl(''), null);
-    assert.equal(extractJzbFromCurl(null), null);
-
-    const doubleQuotedCurl = `curl "https://example.com/beacon?jzb=${SAMPLE_JZB}&v=1"`;
-    assert.equal(extractJzbFromCurl(doubleQuotedCurl), SAMPLE_JZB);
-
-    const urlFlagCurl = `curl --url 'https://example.com/beacon?jzb=${SAMPLE_JZB}' -H 'accept: */*'`;
-    assert.equal(extractJzbFromCurl(urlFlagCurl), SAMPLE_JZB);
-
-    const multilineCurl = [
-        'curl \\',
-        `  'https://example.com/beacon?jzb=${SAMPLE_JZB}&type=track' \\`,
-        '  -H \'accept: */*\''
-    ].join('\n');
-    assert.equal(extractJzbFromCurl(multilineCurl), SAMPLE_JZB);
-
-    const jzbOnlyCurl = `curl 'https://example.com/beacon?foo=bar' --get 'https://example.com/other?jzb=${SAMPLE_JZB}'`;
-    assert.equal(extractJzbFromCurl(jzbOnlyCurl), SAMPLE_JZB);
-    assert.deepEqual(extractJzbSourceFromCurl(jzbOnlyCurl), {
-        jzb: SAMPLE_JZB,
-        requestUrl: `https://example.com/other?jzb=${SAMPLE_JZB}`
+        const wrappedJzb = buildWrappedJzb([ { type: 'wrapped' } ]);
+        const wrappedPayload = await decodeJzb(wrappedJzb);
+        assert.equal(wrappedPayload[ 0 ].type, 'wrapped');
     });
 
-    assert.deepEqual(
-        extractUrlsFromCurl('curl \'https://example.com/a\' --url "https://example.com/b"'),
-        [ 'https://example.com/a', 'https://example.com/b' ]
-    );
+    localThis.test('base64UrlToBytes validates input', () => {
+        assert.throws(() => base64UrlToBytes(''), /Missing jzb parameter/);
+        assert.throws(() => base64UrlToBytes('a'), /truncated or malformed/);
 
-    assert.equal(
-        normalizeCurlText('curl \\\n  "https://example.com"'),
-        'curl "https://example.com"'
-    );
-
-    assert.equal(extractJzbFromCurl('curl https://example.com/no-jzb-here'), null);
-
-    const loadPayload = await decodeJzb(LOAD_JZB);
-    assert.equal(loadPayload[0].type, 'load');
-    assert.equal(loadPayload[0].visitor_id, '_PENDO_T_PkpqxyBe1KF');
-
-    const guideCurl = `curl --url 'https://app.pendo.io/data/guide.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=37&jzb=${GUIDE_JZB}&v=2.341.0_prod-io'`;
-    assert.equal(extractJzbFromCurl(guideCurl), GUIDE_JZB);
-
-    const guidePayload = await decodeJzb(GUIDE_JZB);
-    const guideSummary = summarizePayload(guidePayload);
-    assert.equal(guideSummary.length, 1);
-    assert.equal(guideSummary[0].type, undefined);
-    assert.equal(guideSummary[0].visitorId, '_PENDO_T_PkpqxyBe1KF');
-    assert.equal(
-        buildRequestLabel(guideSummary, 'https://app.pendo.io/data/guide.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c'),
-        'guide.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c'
-    );
-
-    assert.deepEqual(summarizePayload(null), []);
-    assert.deepEqual(summarizePayload(undefined), []);
-    const sparseSummary = summarizePayload([ null, { type: 'keep' } ]);
-    assert.equal(sparseSummary.length, 1);
-    assert.equal(sparseSummary[0].type, 'keep');
-    assert.equal(sparseSummary[0].eventCount, 2);
-    const singleSummary = summarizePayload({ type: 'single' });
-    assert.equal(singleSummary.length, 1);
-    assert.equal(singleSummary[0].type, 'single');
-    assert.equal(singleSummary[0].eventCount, 1);
-
-    const trackSummary = summarizePayload(payload);
-    assert.equal(trackSummary[0].trackEventName, 'Object Analytics - Object created');
-    assert.equal(trackSummary[0].visitorId, 'ravidor@pendo.io');
-    assert.equal(trackSummary[0].eventCount, payload.length);
-
-    const camelSummary = summarizePayload({
-        trackEventName: 'Camel Event',
-        visitorId: 'visitor-1',
-        accountId: 'account-1',
-        metadata: {
-            visitor: { id: 'metadata-visitor' },
-            account: { id: 'metadata-account' }
-        }
+        const bytes = base64UrlToBytes(SAMPLE_JZB);
+        assert.ok(bytes instanceof Uint8Array);
     });
-    assert.equal(camelSummary[0].trackEventName, 'Camel Event');
-    assert.equal(camelSummary[0].visitorId, 'visitor-1');
-    assert.equal(camelSummary[0].accountId, 'account-1');
 
-    const metadataSummary = summarizePayload({
-        metadata: {
-            visitor: { id: 'metadata-visitor' },
-            account: { id: 'metadata-account' }
-        }
+    localThis.test('decodeJzb rejects invalid payloads', async () => {
+        await assert.rejects(() => decodeJzb('!!!not-valid!!!'));
+        await assert.rejects(() => decodeJzb(toBase64Url(Buffer.from([ 0x00, 0x01, 0x02, 0x03, 0x04 ]))));
+        await assert.rejects(() => decodeJzb(buildDeflatedJzb('not-json')));
     });
-    assert.equal(metadataSummary[0].visitorId, 'metadata-visitor');
-    assert.equal(metadataSummary[0].accountId, 'metadata-account');
 
-    assert.equal(
-        buildRequestLabel(trackSummary, url),
-        'Object Analytics - Object created'
-    );
-    assert.equal(buildRequestLabel([ { type: 'load' } ], url), 'load');
-    assert.equal(buildRequestLabel([], 'not-a-url'), 'not-a-url');
+    localThis.test('extractJzbFromUrl reads encoded and plain URLs', () => {
+        const url = `https://data.pendo.io/data/ptm.gif/key?v=1&jzb=${SAMPLE_JZB}`;
+        assert.equal(extractJzbFromUrl(url), SAMPLE_JZB);
+        assert.equal(extractJzbFromUrl('not a url'), null);
 
-    const segmentFlagCurl = `curl --url 'https://app.pendo.io/data/segmentflag.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=34&jzb=${SEGMENTFLAG_JZB}&v=2.341.0_prod-io&ct=1789649537575'`;
-    assert.equal(extractJzbFromCurl(segmentFlagCurl), SEGMENTFLAG_JZB);
-
-    const segmentFlagPayload = await decodeJzb(SEGMENTFLAG_JZB);
-    const segmentFlagSummary = summarizePayload(segmentFlagPayload);
-    assert.equal(segmentFlagSummary.length, 1);
-    assert.equal(segmentFlagSummary[0].visitorId, '_PENDO_T_PkpqxyBe1KF');
-
-    const segmentFlagItem = buildCapturedItem({
-        requestUrl: 'https://app.pendo.io/data/segmentflag.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=34',
-        method: 'PASTE',
-        payload: segmentFlagPayload,
-        jzb: SEGMENTFLAG_JZB,
-        id: 'segment-flag-item',
-        capturedAt: 1_700_000_000_000
+        const encodedJzbUrl = `https://example.com/beacon?jzb=${encodeURIComponent(SAMPLE_JZB.slice(0, 80))}`;
+        assert.equal(extractJzbFromUrl(encodedJzbUrl), SAMPLE_JZB.slice(0, 80));
     });
-    assert.equal(segmentFlagItem.id, 'segment-flag-item');
-    assert.equal(segmentFlagItem.capturedAt, 1_700_000_000_000);
-    assert.equal(segmentFlagItem.jzbLength, SEGMENTFLAG_JZB.length);
-    assert.equal(segmentFlagItem.method, 'PASTE');
-    assert.equal(segmentFlagItem.summary.length, 1);
-    assert.equal(segmentFlagItem.error, null);
 
-    const searchItem = buildCapturedItem({
-        requestUrl: 'https://example.com/beacon',
-        method: 'GET',
-        payload: payload,
-        jzb: SAMPLE_JZB
+    localThis.test('extractJzbFromCurl supports common curl formats', () => {
+        const curl = `curl 'https://data.pendo.io/data/ptm.gif/key?jzb=${SAMPLE_JZB}&type=track'`;
+        assert.equal(extractJzbFromCurl(curl), SAMPLE_JZB);
+        assert.equal(extractJzbFromCurl(''), null);
+        assert.equal(extractJzbFromCurl(null), null);
+
+        const doubleQuotedCurl = `curl "https://example.com/beacon?jzb=${SAMPLE_JZB}&v=1"`;
+        assert.equal(extractJzbFromCurl(doubleQuotedCurl), SAMPLE_JZB);
+
+        const urlFlagCurl = `curl --url 'https://example.com/beacon?jzb=${SAMPLE_JZB}' -H 'accept: */*'`;
+        assert.equal(extractJzbFromCurl(urlFlagCurl), SAMPLE_JZB);
+
+        const multilineCurl = [
+            'curl \\',
+            `  'https://example.com/beacon?jzb=${SAMPLE_JZB}&type=track' \\`,
+            '  -H \'accept: */*\''
+        ].join('\n');
+        assert.equal(extractJzbFromCurl(multilineCurl), SAMPLE_JZB);
+
+        const jzbOnlyCurl = `curl 'https://example.com/beacon?foo=bar' --get 'https://example.com/other?jzb=${SAMPLE_JZB}'`;
+        assert.equal(extractJzbFromCurl(jzbOnlyCurl), SAMPLE_JZB);
+        assert.deepEqual(extractJzbSourceFromCurl(jzbOnlyCurl), {
+            jzb: SAMPLE_JZB,
+            requestUrl: `https://example.com/other?jzb=${SAMPLE_JZB}`
+        });
+
+        assert.equal(extractJzbFromCurl('curl https://example.com/no-jzb-here'), null);
+
+        const singleQuotedUrlCurl = `curl --url '${`https://example.com/beacon?jzb=${SAMPLE_JZB}`}'`;
+        assert.equal(extractJzbFromCurl(singleQuotedUrlCurl), SAMPLE_JZB);
     });
-    assert.equal(matchesCapturedRequestSearch(searchItem, ''), true);
-    assert.equal(matchesCapturedRequestSearch(searchItem, 'object analytics'), true);
-    assert.equal(matchesCapturedRequestSearch(searchItem, 'ravidor@pendo.io'), true);
-    assert.equal(matchesCapturedRequestSearch(searchItem, 'missing-value'), false);
-    assert.equal(matchesCapturedRequestSearch(searchItem, 'OBJECT ANALYTICS'), true);
 
-    assert.match(formatTimestamp(1_700_000_000_000), /\d/);
-    assert.match(formatTimestamp(1_700_000_000_000, { timeOnly: true }), /\d/);
-    assert.equal(formatTimestamp(''), '');
-    assert.equal(formatTimestamp(null), '');
+    localThis.test('extractJzbSourceFromCurl handles pasted fragments and curl helpers', () => {
+        assert.deepEqual(
+            extractUrlsFromCurl('curl \'https://example.com/a\' --url "https://example.com/b"'),
+            [ 'https://example.com/a', 'https://example.com/b' ]
+        );
 
-    const errorItem = buildErrorCapturedItem({
-        requestUrl: 'https://example.com/beacon?jzb=bad',
-        method: 'GET',
-        error: new Error('decode failed')
+        assert.equal(
+            normalizeCurlText('curl \\\n  "https://example.com"'),
+            'curl "https://example.com"'
+        );
+
+        assert.deepEqual(
+            extractJzbSourceFromCurl(`?jzb=${SAMPLE_JZB}`),
+            { jzb: SAMPLE_JZB, requestUrl: '(pasted curl)' }
+        );
+
+        assert.deepEqual(
+            extractJzbSourceFromCurl('?jzb=%'),
+            { jzb: '%', requestUrl: '(pasted curl)' }
+        );
     });
-    assert.equal(errorItem.label, 'Decode failed');
-    assert.equal(errorItem.error, 'decode failed');
-    assert.equal(errorItem.payload, null);
-    assert.equal(formatError(new Error('boom')), 'boom');
 
-    const cappedItems = [
-        { id: 'new', capturedAt: 2 },
-        { id: 'old', capturedAt: 1 }
-    ];
-    trimCapturedRequestArray(cappedItems, 1);
-    assert.equal(cappedItems.length, 1);
-    assert.equal(cappedItems[0].id, 'new');
+    localThis.test('summarizePayload handles real and sparse payloads', async () => {
+        const payload = await decodeJzb(SAMPLE_JZB);
+        const loadPayload = await decodeJzb(LOAD_JZB);
+        assert.equal(loadPayload[0].type, 'load');
+        assert.equal(loadPayload[0].visitor_id, '_PENDO_T_PkpqxyBe1KF');
 
-    const cappedMap = new Map([
-        [ 'old', { id: 'old', capturedAt: 1 } ],
-        [ 'new', { id: 'new', capturedAt: 2 } ]
-    ]);
-    trimCapturedRequestMap(cappedMap, 1);
-    assert.equal(cappedMap.size, 1);
-    assert.equal(cappedMap.has('new'), true);
+        const guideCurl = `curl --url 'https://app.pendo.io/data/guide.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=37&jzb=${GUIDE_JZB}&v=2.341.0_prod-io'`;
+        assert.equal(extractJzbFromCurl(guideCurl), GUIDE_JZB);
 
-    const unchangedMap = new Map([
-        [ 'only', { id: 'only', capturedAt: 1 } ]
-    ]);
-    trimCapturedRequestMap(unchangedMap, MAX_CAPTURED_REQUESTS);
-    assert.equal(unchangedMap.size, 1);
+        const guidePayload = await decodeJzb(GUIDE_JZB);
+        const guideSummary = summarizePayload(guidePayload);
+        assert.equal(guideSummary.length, 1);
+        assert.equal(guideSummary[0].type, undefined);
+        assert.equal(guideSummary[0].visitorId, '_PENDO_T_PkpqxyBe1KF');
 
-    const highlighted = highlightJson(payload);
-    assert.match(highlighted, /<span class="json-key">&quot;track_event_name&quot;<\/span>/);
-    assert.match(highlighted, /<span class="json-value json-value-visitor_id">/);
-    assert.match(highlighted, /<span class="json-value json-value-type">/);
-    assert.match(highlighted, /&quot;Object Analytics - Object created&quot;/);
-    assert.doesNotMatch(highlighted, /<span class="json-key">&quot;sequence&quot;<\/span>/);
+        assert.deepEqual(summarizePayload(null), []);
+        assert.deepEqual(summarizePayload(undefined), []);
+        const sparseSummary = summarizePayload([ null, { type: 'keep' } ]);
+        assert.equal(sparseSummary.length, 1);
+        assert.equal(sparseSummary[0].type, 'keep');
+        assert.equal(sparseSummary[0].eventCount, 2);
+        const singleSummary = summarizePayload({ type: 'single' });
+        assert.equal(singleSummary.length, 1);
+        assert.equal(singleSummary[0].type, 'single');
+        assert.equal(singleSummary[0].eventCount, 1);
 
-    const malicious = [ { track_event_name: '<img onerror=alert(1) src=x>' } ];
-    const maliciousHtml = highlightJson(malicious);
-    assert.ok(!maliciousHtml.includes('<img'));
-    assert.ok(maliciousHtml.includes('&lt;'));
-    assert.ok(maliciousHtml.includes('&quot;'));
+        const trackSummary = summarizePayload(payload);
+        assert.equal(trackSummary[0].trackEventName, 'Object Analytics - Object created');
+        assert.equal(trackSummary[0].visitorId, 'ravidor@pendo.io');
+        assert.equal(trackSummary[0].eventCount, payload.length);
 
-    const plainLine = highlightJson({ sequence: 1 });
-    assert.ok(!plainLine.includes('<span class="json-key">'));
-    assert.ok(plainLine.includes('sequence'));
+        const camelSummary = summarizePayload({
+            trackEventName: 'Camel Event',
+            visitorId: 'visitor-1',
+            accountId: 'account-1',
+            metadata: {
+                visitor: { id: 'metadata-visitor' },
+                account: { id: 'metadata-account' }
+            }
+        });
+        assert.equal(camelSummary[0].trackEventName, 'Camel Event');
+        assert.equal(camelSummary[0].visitorId, 'visitor-1');
+        assert.equal(camelSummary[0].accountId, 'account-1');
 
-    assert.equal(formatError('plain failure'), 'plain failure');
+        const metadataSummary = summarizePayload({
+            metadata: {
+                visitor: { id: 'metadata-visitor' },
+                account: { id: 'metadata-account' }
+            }
+        });
+        assert.equal(metadataSummary[0].visitorId, 'metadata-visitor');
+        assert.equal(metadataSummary[0].accountId, 'metadata-account');
+    });
 
-    assert.deepEqual(
-        extractJzbSourceFromCurl(`?jzb=${SAMPLE_JZB}`),
-        { jzb: SAMPLE_JZB, requestUrl: '(pasted curl)' }
-    );
+    localThis.test('buildRequestLabel derives labels from summary and URL', async () => {
+        const payload = await decodeJzb(SAMPLE_JZB);
+        const trackSummary = summarizePayload(payload);
+        const url = `https://data.pendo.io/data/ptm.gif/key?v=1&jzb=${SAMPLE_JZB}`;
 
-    assert.deepEqual(
-        extractJzbSourceFromCurl('?jzb=%'),
-        { jzb: '%', requestUrl: '(pasted curl)' }
-    );
+        assert.equal(
+            buildRequestLabel(trackSummary, url),
+            'Object Analytics - Object created'
+        );
+        assert.equal(buildRequestLabel([ { type: 'load' } ], url), 'load');
+        assert.equal(buildRequestLabel([], 'not-a-url'), 'not-a-url');
+        assert.equal(
+            buildRequestLabel(
+                summarizePayload(await decodeJzb(GUIDE_JZB)),
+                'https://app.pendo.io/data/guide.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c'
+            ),
+            'guide.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c'
+        );
+    });
 
-    const singleQuotedUrlCurl = `curl --url '${`https://example.com/beacon?jzb=${SAMPLE_JZB}`}'`;
-    assert.equal(extractJzbFromCurl(singleQuotedUrlCurl), SAMPLE_JZB);
+    localThis.test('buildCapturedItem and search helpers work for real payloads', async () => {
+        const payload = await decodeJzb(SAMPLE_JZB);
+        const segmentFlagCurl = `curl --url 'https://app.pendo.io/data/segmentflag.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=34&jzb=${SEGMENTFLAG_JZB}&v=2.341.0_prod-io&ct=1789649537575'`;
+        assert.equal(extractJzbFromCurl(segmentFlagCurl), SEGMENTFLAG_JZB);
 
-    await assert.rejects(() => decodeJzb(toBase64Url(Buffer.from([ 0x00, 0x01, 0x02, 0x03, 0x04 ]))));
-    await assert.rejects(() => decodeJzb(buildDeflatedJzb('not-json')));
+        const segmentFlagPayload = await decodeJzb(SEGMENTFLAG_JZB);
+        const segmentFlagSummary = summarizePayload(segmentFlagPayload);
+        assert.equal(segmentFlagSummary.length, 1);
+        assert.equal(segmentFlagSummary[0].visitorId, '_PENDO_T_PkpqxyBe1KF');
 
-    const originalToLocaleString = Date.prototype.toLocaleString;
-    Date.prototype.toLocaleString = () => {
-        throw new Error('locale unavailable');
-    };
-    assert.equal(formatTimestamp(1), '1');
-    Date.prototype.toLocaleString = originalToLocaleString;
+        const segmentFlagItem = buildCapturedItem({
+            requestUrl: 'https://app.pendo.io/data/segmentflag.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=34',
+            method: 'PASTE',
+            payload: segmentFlagPayload,
+            jzb: SEGMENTFLAG_JZB,
+            id: 'segment-flag-item',
+            capturedAt: 1_700_000_000_000
+        });
+        assert.equal(segmentFlagItem.id, 'segment-flag-item');
+        assert.equal(segmentFlagItem.capturedAt, 1_700_000_000_000);
+        assert.equal(segmentFlagItem.jzbLength, SEGMENTFLAG_JZB.length);
+        assert.equal(segmentFlagItem.method, 'PASTE');
+        assert.equal(segmentFlagItem.summary.length, 1);
+        assert.equal(segmentFlagItem.error, null);
 
-    const bytes = base64UrlToBytes(SAMPLE_JZB);
-    assert.ok(bytes instanceof Uint8Array);
+        const searchItem = buildCapturedItem({
+            requestUrl: 'https://example.com/beacon',
+            method: 'GET',
+            payload: payload,
+            jzb: SAMPLE_JZB
+        });
+        assert.equal(matchesCapturedRequestSearch(searchItem, ''), true);
+        assert.equal(matchesCapturedRequestSearch(searchItem, 'object analytics'), true);
+        assert.equal(matchesCapturedRequestSearch(searchItem, 'ravidor@pendo.io'), true);
+        assert.equal(matchesCapturedRequestSearch(searchItem, 'missing-value'), false);
+        assert.equal(matchesCapturedRequestSearch(searchItem, 'OBJECT ANALYTICS'), true);
+    });
 
-    assert.throws(
-        () => base64UrlToBytes('a'.repeat(MAX_JZB_BASE64_LENGTH + 1)),
-        /exceeds maximum allowed size/
-    );
+    localThis.test('formatTimestamp and formatError handle edge cases', () => {
+        assert.match(formatTimestamp(1_700_000_000_000), /\d/);
+        assert.match(formatTimestamp(1_700_000_000_000, { timeOnly: true }), /\d/);
+        assert.equal(formatTimestamp(''), '');
+        assert.equal(formatTimestamp(null), '');
+        assert.equal(formatError(new Error('boom')), 'boom');
+        assert.equal(formatError('plain failure'), 'plain failure');
 
-    assert.equal(extractJzbSourceFromCurl('a'.repeat(MAX_CURL_TEXT_LENGTH + 1)), null);
-    assert.equal(isCurlTextTooLarge('a'.repeat(MAX_CURL_TEXT_LENGTH + 1)), true);
-    assert.equal(isCurlTextTooLarge('a'.repeat(MAX_CURL_TEXT_LENGTH)), false);
-    assert.match(getCurlTextTooLargeError(), /512 KB/);
+        const originalToLocaleString = Date.prototype.toLocaleString;
+        Date.prototype.toLocaleString = () => {
+            throw new Error('locale unavailable');
+        };
+        assert.equal(formatTimestamp(1), '1');
+        Date.prototype.toLocaleString = originalToLocaleString;
+    });
 
-    assert.equal(isCapturedItem(searchItem), true);
-    assert.equal(isCapturedItem(errorItem), true);
-    assert.equal(isCapturedItem(null), false);
-    assert.equal(isCapturedItem({ id: 'x' }), false);
-    assert.equal(isCapturedItem({
-        id: '',
-        requestUrl: 'https://example.com',
-        method: 'GET',
-        capturedAt: 1,
-        label: 'test',
-        summary: [],
-        payload: {}
-    }), false);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 123,
-        method: 'GET',
-        capturedAt: 1,
-        label: 'test',
-        summary: [],
-        payload: {}
-    }), false);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 'https://example.com',
-        method: null,
-        capturedAt: 1,
-        label: 'test',
-        summary: [],
-        payload: {}
-    }), false);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 'https://example.com',
-        method: 'GET',
-        capturedAt: 1,
-        label: 'test',
-        summary: [],
-        error: 'failed'
-    }), true);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 'https://example.com',
-        method: 'GET',
-        capturedAt: 1,
-        label: 'test',
-        summary: [],
-        payload: {},
-        error: null
-    }), true);
-    assert.equal(isCapturedItem({ id: 'x', error: 1 }), false);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 'https://example.com',
-        method: 'GET',
-        capturedAt: 1,
-        label: 'test',
-        summary: [],
-        error: false
-    }), false);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 'https://example.com',
-        method: 'GET',
-        capturedAt: Number.NaN,
-        label: 'test',
-        summary: []
-    }), false);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 'https://example.com',
-        method: 'GET',
-        capturedAt: 1,
-        label: 1,
-        summary: []
-    }), false);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 'https://example.com',
-        method: 'GET',
-        capturedAt: 1,
-        label: 'test',
-        summary: 'not-array'
-    }), false);
-    assert.equal(isCapturedItem({
-        id: 'x',
-        requestUrl: 'https://example.com',
-        method: 'GET',
-        capturedAt: 1,
-        label: 'test',
-        summary: [],
-        error: null
-    }), false);
+    localThis.test('buildErrorCapturedItem and trim helpers enforce caps', () => {
+        assert.equal(MAX_CAPTURED_REQUESTS, 200);
 
-    const compressedAtLimit = toBase64Url(Buffer.alloc(MAX_COMPRESSED_BYTES, 1));
-    assert.equal(base64UrlToBytes(compressedAtLimit).length, MAX_COMPRESSED_BYTES);
-    assert.throws(
-        () => base64UrlToBytes(toBase64Url(Buffer.alloc(MAX_COMPRESSED_BYTES + 1, 1))),
-        /exceeds maximum allowed size/
-    );
+        const errorItem = buildErrorCapturedItem({
+            requestUrl: 'https://example.com/beacon?jzb=bad',
+            method: 'GET',
+            error: new Error('decode failed')
+        });
+        assert.equal(errorItem.label, 'Decode failed');
+        assert.equal(errorItem.error, 'decode failed');
+        assert.equal(errorItem.payload, null);
 
-    const decompressedAtLimit = buildDeflatedJzb(JSON.stringify('a'.repeat(MAX_DECOMPRESSED_CHARS - 2)));
-    await decodeJzb(decompressedAtLimit);
-    await assert.rejects(
-        () => decodeJzb(buildDeflatedJzb(JSON.stringify('a'.repeat(MAX_DECOMPRESSED_CHARS - 1)))),
-        /Decompressed jzb payload exceeds maximum allowed size/
-    );
+        const cappedItems = [
+            { id: 'new', capturedAt: 2 },
+            { id: 'old', capturedAt: 1 }
+        ];
+        trimCapturedRequestArray(cappedItems, 1);
+        assert.equal(cappedItems.length, 1);
+        assert.equal(cappedItems[0].id, 'new');
+
+        const cappedMap = new Map([
+            [ 'old', { id: 'old', capturedAt: 1 } ],
+            [ 'new', { id: 'new', capturedAt: 2 } ]
+        ]);
+        trimCapturedRequestMap(cappedMap, 1);
+        assert.equal(cappedMap.size, 1);
+        assert.equal(cappedMap.has('new'), true);
+
+        const unchangedMap = new Map([
+            [ 'only', { id: 'only', capturedAt: 1 } ]
+        ]);
+        trimCapturedRequestMap(unchangedMap, MAX_CAPTURED_REQUESTS);
+        assert.equal(unchangedMap.size, 1);
+    });
+
+    localThis.test('highlightJson escapes HTML and highlights key fields', async () => {
+        const payload = await decodeJzb(SAMPLE_JZB);
+        const highlighted = highlightJson(payload);
+        assert.match(highlighted, /<span class="json-key">&quot;track_event_name&quot;<\/span>/);
+        assert.match(highlighted, /<span class="json-value json-value-visitor_id">/);
+        assert.match(highlighted, /<span class="json-value json-value-type">/);
+        assert.match(highlighted, /&quot;Object Analytics - Object created&quot;/);
+        assert.doesNotMatch(highlighted, /<span class="json-key">&quot;sequence&quot;<\/span>/);
+
+        const malicious = [ { track_event_name: '<img onerror=alert(1) src=x>' } ];
+        const maliciousHtml = highlightJson(malicious);
+        assert.ok(!maliciousHtml.includes('<img'));
+        assert.ok(maliciousHtml.includes('&lt;'));
+        assert.ok(maliciousHtml.includes('&quot;'));
+
+        const plainLine = highlightJson({ sequence: 1 });
+        assert.ok(!plainLine.includes('<span class="json-key">'));
+        assert.ok(plainLine.includes('sequence'));
+    });
+
+    localThis.test('isCapturedItem validates captured request shapes', async () => {
+        const payload = await decodeJzb(SAMPLE_JZB);
+        const searchItem = buildCapturedItem({
+            requestUrl: 'https://example.com/beacon',
+            method: 'GET',
+            payload: payload,
+            jzb: SAMPLE_JZB
+        });
+        const errorItem = buildErrorCapturedItem({
+            requestUrl: 'https://example.com/beacon?jzb=bad',
+            method: 'GET',
+            error: new Error('decode failed')
+        });
+
+        assert.equal(isCapturedItem(searchItem), true);
+        assert.equal(isCapturedItem(errorItem), true);
+        assert.equal(isCapturedItem(null), false);
+        assert.equal(isCapturedItem({ id: 'x' }), false);
+        assert.equal(isCapturedItem({
+            id: '',
+            requestUrl: 'https://example.com',
+            method: 'GET',
+            capturedAt: 1,
+            label: 'test',
+            summary: [],
+            payload: {}
+        }), false);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 123,
+            method: 'GET',
+            capturedAt: 1,
+            label: 'test',
+            summary: [],
+            payload: {}
+        }), false);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 'https://example.com',
+            method: null,
+            capturedAt: 1,
+            label: 'test',
+            summary: [],
+            payload: {}
+        }), false);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 'https://example.com',
+            method: 'GET',
+            capturedAt: 1,
+            label: 'test',
+            summary: [],
+            error: 'failed'
+        }), true);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 'https://example.com',
+            method: 'GET',
+            capturedAt: 1,
+            label: 'test',
+            summary: [],
+            payload: {},
+            error: null
+        }), true);
+        assert.equal(isCapturedItem({ id: 'x', error: 1 }), false);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 'https://example.com',
+            method: 'GET',
+            capturedAt: 1,
+            label: 'test',
+            summary: [],
+            error: false
+        }), false);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 'https://example.com',
+            method: 'GET',
+            capturedAt: Number.NaN,
+            label: 'test',
+            summary: []
+        }), false);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 'https://example.com',
+            method: 'GET',
+            capturedAt: 1,
+            label: 1,
+            summary: []
+        }), false);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 'https://example.com',
+            method: 'GET',
+            capturedAt: 1,
+            label: 'test',
+            summary: 'not-array'
+        }), false);
+        assert.equal(isCapturedItem({
+            id: 'x',
+            requestUrl: 'https://example.com',
+            method: 'GET',
+            capturedAt: 1,
+            label: 'test',
+            summary: [],
+            error: null
+        }), false);
+    });
+
+    localThis.test('size limits protect decode and curl inputs', async () => {
+        assert.throws(
+            () => base64UrlToBytes('a'.repeat(MAX_JZB_BASE64_LENGTH + 1)),
+            /exceeds maximum allowed size/
+        );
+
+        assert.equal(extractJzbSourceFromCurl('a'.repeat(MAX_CURL_TEXT_LENGTH + 1)), null);
+        assert.equal(isCurlTextTooLarge('a'.repeat(MAX_CURL_TEXT_LENGTH + 1)), true);
+        assert.equal(isCurlTextTooLarge('a'.repeat(MAX_CURL_TEXT_LENGTH)), false);
+        assert.match(getCurlTextTooLargeError(), /512 KB/);
+
+        const compressedAtLimit = toBase64Url(Buffer.alloc(MAX_COMPRESSED_BYTES, 1));
+        assert.equal(base64UrlToBytes(compressedAtLimit).length, MAX_COMPRESSED_BYTES);
+        assert.throws(
+            () => base64UrlToBytes(toBase64Url(Buffer.alloc(MAX_COMPRESSED_BYTES + 1, 1))),
+            /exceeds maximum allowed size/
+        );
+
+        const decompressedAtLimit = buildDeflatedJzb(JSON.stringify('a'.repeat(MAX_DECOMPRESSED_CHARS - 2)));
+        await decodeJzb(decompressedAtLimit);
+        await assert.rejects(
+            () => decodeJzb(buildDeflatedJzb(JSON.stringify('a'.repeat(MAX_DECOMPRESSED_CHARS - 1)))),
+            /Decompressed jzb payload exceeds maximum allowed size/
+        );
+    });
 
     console.log('jzb decoder tests passed');
 }
@@ -405,7 +456,11 @@ async function runJzbTests () {
 module.exports = runJzbTests;
 
 if (require.main === module) {
-    runJzbTests().catch((error) => {
+    runJzbTests.call({
+        test (_name, fn) {
+            return fn();
+        }
+    }).catch((error) => {
         console.error(error);
         process.exit(1);
     });

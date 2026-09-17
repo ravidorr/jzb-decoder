@@ -46,6 +46,7 @@ const searchInputEl = document.getElementById('search');
 const copyJsonButtonEl = document.getElementById('copy-json');
 const copyStatusEl = document.getElementById('copy-status');
 const layoutResizerEl = document.getElementById('layout-resizer');
+const decodeCurlButtonEl = document.getElementById('decode-curl');
 
 const SIDEBAR_WIDTH_KEY = 'jzb-decoder-sidebar-width';
 const MIN_SIDEBAR_WIDTH = 200;
@@ -58,6 +59,7 @@ let selectedId = null;
 let renderedDetailId = null;
 let searchQuery = '';
 let copyStatusTimeout = null;
+let decodeInFlight = false;
 
 initLayoutResizer();
 
@@ -73,21 +75,26 @@ port.onMessage.addListener((message) => {
 
     if (message.type === 'init') {
         if (!Array.isArray(message.requests)) {
+            showPasteError('Received invalid session data from DevTools.');
             return;
         }
 
         message.requests.filter(JzbDecoder.isCapturedItem).forEach(addRequest);
+        setDecodeInFlight(false);
         renderList();
         return;
     }
 
     if (message.type === 'request') {
         if (!JzbDecoder.isCapturedItem(message.item)) {
+            showPasteError('Received an invalid captured request.');
+            setDecodeInFlight(false);
             return;
         }
 
         addRequest(message.item);
         selectedId = message.item.id;
+        setDecodeInFlight(false);
         renderList({ syncSelection: false });
         return;
     }
@@ -97,11 +104,13 @@ port.onMessage.addListener((message) => {
         selectedId = null;
         hidePasteError();
         hidePasteHint();
+        setDecodeInFlight(false);
         renderList();
         return;
     }
 
     if (message.type === 'decode-error' && typeof message.error === 'string') {
+        setDecodeInFlight(false);
         showPasteError(message.error);
     }
 
@@ -128,8 +137,12 @@ pasteToggleEl.addEventListener('click', () => {
     }
 });
 
-document.getElementById('decode-curl').addEventListener('click', () => {
+decodeCurlButtonEl.addEventListener('click', () => {
     hidePasteHint();
+
+    if (decodeInFlight) {
+        return;
+    }
 
     if (JzbDecoder.isCurlTextTooLarge(curlInputEl.value)) {
         showPasteError(JzbDecoder.getCurlTextTooLargeError());
@@ -137,10 +150,15 @@ document.getElementById('decode-curl').addEventListener('click', () => {
     }
 
     hidePasteError();
-    postToDevtools({
+
+    if (!postToDevtools({
         type: 'decode-curl',
         curl: curlInputEl.value
-    });
+    })) {
+        return;
+    }
+
+    setDecodeInFlight(true);
 });
 
 document.getElementById('clear-curl').addEventListener('click', () => {
@@ -216,7 +234,13 @@ function postToDevtools (message) {
 }
 
 function showConnectionLostMessage () {
+    setDecodeInFlight(false);
     showPasteError('Connection lost. Close and reopen the Decipher JZB panel.');
+}
+
+function setDecodeInFlight (inFlight) {
+    decodeInFlight = inFlight;
+    decodeCurlButtonEl.disabled = inFlight;
 }
 
 function setElementMessage (element, message) {

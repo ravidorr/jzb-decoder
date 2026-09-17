@@ -273,7 +273,7 @@ function createDom ({ execCommandImpl } = {}) {
     };
 }
 
-function createMockPort (name = 'jzb-panel', { throwOnPost = false } = {}) {
+function createMockPort (name = 'jzb-panel', { throwOnPost = false, throwOnDisconnect = false } = {}) {
     let messageListener = null;
     let disconnectListener = null;
     const messages = [];
@@ -304,6 +304,10 @@ function createMockPort (name = 'jzb-panel', { throwOnPost = false } = {}) {
             }
         },
         disconnect () {
+            if (throwOnDisconnect) {
+                throw new Error('disconnect failed');
+            }
+
             disconnectListener?.();
         }
     };
@@ -393,6 +397,126 @@ function loadDevtools () {
     return harness;
 }
 
+function createPortChannel ({ throwOnPost = false } = {}) {
+    let panelMessageListener = null;
+    let devtoolsMessageListener = null;
+    let panelDisconnectListener = null;
+    let devtoolsDisconnectListener = null;
+    const messagesToPanel = [];
+    const messagesToDevtools = [];
+
+    async function deliver (listener, message) {
+        if (listener) {
+            await listener(message);
+        }
+    }
+
+    const portForPanel = {
+        name: 'jzb-panel',
+        messages: messagesToPanel,
+        postMessage (message) {
+            if (throwOnPost) {
+                throw new Error('postMessage failed');
+            }
+
+            messagesToDevtools.push(message);
+            return deliver(devtoolsMessageListener, message);
+        },
+        onMessage: {
+            addListener (listener) {
+                panelMessageListener = listener;
+            }
+        },
+        onDisconnect: {
+            addListener (listener) {
+                panelDisconnectListener = listener;
+            }
+        },
+        disconnect () {
+            panelDisconnectListener?.();
+            devtoolsDisconnectListener?.();
+        }
+    };
+
+    const portForDevtools = {
+        name: 'jzb-panel',
+        messages: messagesToDevtools,
+        postMessage (message) {
+            if (throwOnPost) {
+                throw new Error('postMessage failed');
+            }
+
+            messagesToPanel.push(message);
+            return deliver(panelMessageListener, message);
+        },
+        onMessage: {
+            addListener (listener) {
+                devtoolsMessageListener = listener;
+            }
+        },
+        onDisconnect: {
+            addListener (listener) {
+                devtoolsDisconnectListener = listener;
+            }
+        },
+        disconnect () {
+            panelDisconnectListener?.();
+            devtoolsDisconnectListener?.();
+        }
+    };
+
+    return {
+        portForPanel,
+        portForDevtools,
+        messagesToPanel,
+        messagesToDevtools
+    };
+}
+
+function loadIntegration ({ execCommandImpl, localStorageValues, themeApi, throwOnPost = false } = {}) {
+    const harness = createChromeMock({ themeApi });
+    const dom = createDom({ execCommandImpl });
+    const channel = createPortChannel({ throwOnPost });
+
+    if (localStorageValues) {
+        Object.entries(localStorageValues).forEach(([ key, value ]) => {
+            dom.localStorage.setItem(key, String(value));
+        });
+    }
+
+    harness.chrome.runtime.connect = () => channel.portForPanel;
+    global.chrome = harness.chrome;
+    global.document = dom.document;
+    global.window = dom.window;
+    global.localStorage = dom.localStorage;
+    global.getComputedStyle = (element) => ({
+        getPropertyValue (name) {
+            const inlineValue = element?.style?.getPropertyValue?.(name);
+
+            if (inlineValue) {
+                return inlineValue;
+            }
+
+            return name === '--sidebar-width' ? '280px' : '';
+        }
+    });
+
+    loadJzbDecoder();
+    require(path.join(__dirname, '..', 'devtools.js'));
+    harness.connectListeners[ 0 ](channel.portForDevtools);
+    require(path.join(__dirname, '..', 'panel.js'));
+
+    dom.elements[ 'request-list' ].querySelectorAll = (selector) => querySelectorAll(dom.elements[ 'request-list' ], selector);
+    dom.elements[ 'request-list' ].querySelector = (selector) => querySelector(dom.elements[ 'request-list' ], selector);
+
+    return {
+        dom,
+        harness,
+        channel,
+        triggerThemeChange: harness.triggerThemeChange
+    };
+}
+
 function loadPanel ({ execCommandImpl, localStorageValues, themeApi } = {}) {
     const harness = createChromeMock({ themeApi });
     const dom = createDom({ execCommandImpl });
@@ -442,10 +566,12 @@ function loadPanel ({ execCommandImpl, localStorageValues, themeApi } = {}) {
 
 module.exports = {
     createMockPort,
+    createPortChannel,
     createChromeMock,
     createDom,
     resetExtensionModules,
     loadJzbDecoder,
     loadDevtools,
+    loadIntegration,
     loadPanel
 };

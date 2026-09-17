@@ -3,6 +3,7 @@
 const runJzbTests = require('../test/jzb.test.js');
 const runDevtoolsTests = require('../test/devtools.test.js');
 const runPanelTests = require('../test/panel.test.js');
+const runIntegrationTests = require('../test/integration.test.js');
 
 async function runSuite (suiteFn) {
     const tests = [];
@@ -24,9 +25,10 @@ async function runSuite (suiteFn) {
 }
 
 async function runAllTests () {
-    await runJzbTests();
+    await runSuite(runJzbTests);
     await runSuite(runDevtoolsTests);
     await runSuite(runPanelTests);
+    await runSuite(runIntegrationTests);
 }
 
 runAllTests().catch((error) => {
