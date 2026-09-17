@@ -1,10 +1,21 @@
 const JzbDecoder = (() => {
+    function padBase64Url (jzb) {
+        const remainder = jzb.length % 4;
+
+        if (remainder === 1) {
+            throw new Error('jzb parameter looks truncated or malformed');
+        }
+
+        return jzb + '='.repeat((4 - remainder) % 4);
+    }
+
     function base64UrlToBytes (jzb) {
         if (!jzb) {
             throw new Error('Missing jzb parameter');
         }
 
-        const padded = jzb + '=='.slice((jzb.length + 3) % 4);
+        const trimmed = jzb.trim();
+        const padded = padBase64Url(trimmed);
         const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
         const binary = atob(base64);
 
@@ -145,28 +156,15 @@ const JzbDecoder = (() => {
         const events = Array.isArray(payload) ? payload : [ payload ];
 
         return events.filter((event) => event != null).map((event) => ({
-            type: inferPayloadType(event),
+            type: event.type,
             trackEventName: event.track_event_name || event.trackEventName,
             visitorId: event.visitor_id || event.visitorId || event.metadata?.visitor?.id,
             accountId: event.account_id || event.accountId || event.metadata?.account?.id,
             browserTime: event.browser_time || event.browserTime,
             url: event.url,
             sequence: event.sequence,
-            guideCount: Array.isArray(event.cachedGuides) ? event.cachedGuides.length : undefined,
             eventCount: events.length
         }));
-    }
-
-    function inferPayloadType (event) {
-        if (event.type) {
-            return event.type;
-        }
-
-        if (Array.isArray(event.cachedGuides)) {
-            return 'guide-config';
-        }
-
-        return undefined;
     }
 
     function formatTimestamp (ms) {
@@ -186,10 +184,6 @@ const JzbDecoder = (() => {
             return first.trackEventName;
         }
 
-        if (first.type === 'guide-config' && first.guideCount != null) {
-            return `guide config (${first.guideCount} guides)`;
-        }
-
         if (first.type) {
             return first.type;
         }
@@ -201,6 +195,22 @@ const JzbDecoder = (() => {
         } catch {
             return requestUrl;
         }
+    }
+
+    function buildCapturedItem ({ requestUrl, method, payload, jzb, id, capturedAt }) {
+        const summary = summarizePayload(payload);
+
+        return {
+            id: id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            capturedAt: capturedAt || Date.now(),
+            requestUrl,
+            method,
+            jzbLength: jzb.length,
+            payload,
+            summary,
+            label: buildRequestLabel(summary, requestUrl),
+            error: null
+        };
     }
 
     const HIGHLIGHT_JSON_KEYS = new Set([
@@ -250,6 +260,7 @@ const JzbDecoder = (() => {
         summarizePayload,
         formatTimestamp,
         buildRequestLabel,
+        buildCapturedItem,
         highlightJson
     };
 })();

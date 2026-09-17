@@ -1,5 +1,13 @@
 const port = chrome.runtime.connect({ name: 'jzb-panel' });
 
+function applyDevToolsTheme (theme) {
+    const themeName = theme || chrome.devtools.panels.themeName || 'default';
+    document.documentElement.dataset.theme = themeName;
+}
+
+applyDevToolsTheme();
+chrome.devtools.panels.setThemeChangeHandler(applyDevToolsTheme);
+
 const requestListEl = document.getElementById('request-list');
 const emptyStateEl = document.getElementById('empty-state');
 const detailEmptyEl = document.getElementById('detail-empty');
@@ -7,16 +15,25 @@ const detailContentEl = document.getElementById('detail-content');
 const detailMetaEl = document.getElementById('detail-meta');
 const detailJsonEl = document.getElementById('detail-json');
 const pastePanelEl = document.getElementById('paste-panel');
+const pasteToggleEl = document.getElementById('paste-toggle');
 const pasteErrorEl = document.getElementById('paste-error');
 const curlInputEl = document.getElementById('curl-input');
 const searchInputEl = document.getElementById('search');
 const copyJsonButtonEl = document.getElementById('copy-json');
 const copyStatusEl = document.getElementById('copy-status');
+const layoutResizerEl = document.getElementById('layout-resizer');
+
+const SIDEBAR_WIDTH_KEY = 'jzb-decoder-sidebar-width';
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH_RATIO = 0.7;
+const DEFAULT_SIDEBAR_WIDTH = 280;
 
 const requests = new Map();
 let selectedId = null;
 let searchQuery = '';
 let copyStatusTimeout = null;
+
+initLayoutResizer();
 
 port.onMessage.addListener((message) => {
     if (message.type === 'init') {
@@ -44,14 +61,26 @@ port.onMessage.addListener((message) => {
         pasteErrorEl.textContent = message.error;
         pasteErrorEl.classList.remove('hidden');
     }
+
 });
 
-document.getElementById('clear').addEventListener('click', () => {
+document.getElementById('clear-requests').addEventListener('click', () => {
     port.postMessage({ type: 'clear' });
 });
 
-document.getElementById('paste-toggle').addEventListener('click', () => {
-    pastePanelEl.classList.toggle('hidden');
+pasteToggleEl.addEventListener('click', () => {
+    const wasHidden = pastePanelEl.classList.contains('hidden');
+    const isHidden = pastePanelEl.classList.toggle('hidden');
+    pasteToggleEl.setAttribute('aria-expanded', String(!isHidden));
+
+    if (!wasHidden || isHidden) {
+        return;
+    }
+
+    pasteErrorEl.textContent = '';
+    pasteErrorEl.classList.add('hidden');
+    curlInputEl.focus();
+    tryPasteIntoTextarea(curlInputEl);
 });
 
 document.getElementById('decode-curl').addEventListener('click', () => {
@@ -62,12 +91,19 @@ document.getElementById('decode-curl').addEventListener('click', () => {
     });
 });
 
+document.getElementById('clear-curl').addEventListener('click', () => {
+    curlInputEl.value = '';
+    pasteErrorEl.textContent = '';
+    pasteErrorEl.classList.add('hidden');
+    curlInputEl.focus();
+});
+
 searchInputEl.addEventListener('input', () => {
     searchQuery = searchInputEl.value.trim().toLowerCase();
     renderList();
 });
 
-copyJsonButtonEl.addEventListener('click', async () => {
+copyJsonButtonEl.addEventListener('click', () => {
     const item = selectedId ? requests.get(selectedId) : null;
 
     if (!item || item.error || !item.payload) {
@@ -76,13 +112,40 @@ copyJsonButtonEl.addEventListener('click', async () => {
 
     const text = JSON.stringify(item.payload, null, 2);
 
-    try {
-        await navigator.clipboard.writeText(text);
+    if (copyTextToClipboard(text)) {
         showCopyStatus('Copied');
-    } catch {
+    } else {
         showCopyStatus('Copy failed');
     }
 });
+
+function tryPasteIntoTextarea (textarea) {
+    const before = textarea.value;
+
+    textarea.focus();
+
+    if (!document.execCommand('paste')) {
+        return false;
+    }
+
+    return textarea.value !== before || Boolean(textarea.value.trim());
+}
+
+function copyTextToClipboard (text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+
+    return copied;
+}
 
 function addRequest (item) {
     requests.set(item.id, item);
@@ -150,7 +213,7 @@ function renderList () {
         subtitle.className = 'request-subtitle';
         subtitle.textContent = item.error
             ? item.error
-            : `${item.method} · ${formatTime(item.capturedAt)} · ${truncate(item.requestUrl, 80)}`;
+            : `${item.method} · ${formatTime(item.capturedAt)} · ${item.requestUrl}`;
 
         button.append(label, subtitle);
         button.addEventListener('click', () => selectRequest(item.id));
@@ -248,8 +311,83 @@ function formatTime (timestamp) {
     return new Date(timestamp).toLocaleTimeString();
 }
 
-function truncate (value, max) {
-    if (!value || value.length <= max) return value || '';
+function getSidebarWidth () {
+    const layout = document.querySelector('.layout');
+    const width = layout ? Number.parseInt(getComputedStyle(layout).getPropertyValue('--sidebar-width'), 10) : NaN;
 
-    return `${value.slice(0, max - 1)}…`;
+    return Number.isFinite(width) ? width : DEFAULT_SIDEBAR_WIDTH;
+}
+
+function getMaxSidebarWidth () {
+    return Math.floor(window.innerWidth * MAX_SIDEBAR_WIDTH_RATIO);
+}
+
+function setSidebarWidth (width) {
+    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(width, getMaxSidebarWidth()));
+    const layout = document.querySelector('.layout');
+
+    if (!layout) {
+        return clamped;
+    }
+
+    layout.style.setProperty('--sidebar-width', `${clamped}px`);
+    layoutResizerEl.setAttribute('aria-valuenow', String(clamped));
+    layoutResizerEl.setAttribute('aria-valuemax', String(getMaxSidebarWidth()));
+
+    return clamped;
+}
+
+function initLayoutResizer () {
+    const savedWidth = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+
+    if (Number.isFinite(savedWidth) && savedWidth > 0) {
+        setSidebarWidth(savedWidth);
+    } else {
+        setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
+    }
+
+    let startX = 0;
+    let startWidth = DEFAULT_SIDEBAR_WIDTH;
+
+    function stopResize () {
+        layoutResizerEl.classList.remove('is-dragging');
+        document.body.classList.remove('is-resizing');
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', stopResize);
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(getSidebarWidth()));
+    }
+
+    function onPointerMove (event) {
+        setSidebarWidth(startWidth + (event.clientX - startX));
+    }
+
+    layoutResizerEl.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        startX = event.clientX;
+        startWidth = getSidebarWidth();
+        layoutResizerEl.classList.add('is-dragging');
+        document.body.classList.add('is-resizing');
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', stopResize);
+    });
+
+    layoutResizerEl.addEventListener('keydown', (event) => {
+        let nextWidth = getSidebarWidth();
+
+        if (event.key === 'ArrowLeft') {
+            nextWidth -= event.shiftKey ? 40 : 16;
+        } else if (event.key === 'ArrowRight') {
+            nextWidth += event.shiftKey ? 40 : 16;
+        } else {
+            return;
+        }
+
+        event.preventDefault();
+        setSidebarWidth(nextWidth);
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(getSidebarWidth()));
+    });
+
+    window.addEventListener('resize', () => {
+        setSidebarWidth(getSidebarWidth());
+    });
 }

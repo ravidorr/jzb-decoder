@@ -6,35 +6,50 @@
     <link rel="stylesheet" href="panel.css">
   </head>
   <body>
-    <header class="toolbar">
-      <div class="toolbar-title">Decipher JZB</div>
-      <div class="toolbar-search">
-        <input
-          id="search"
-          type="search"
-          placeholder="Filter requests..."
-          aria-label="Filter captured requests">
+    <section class="paste-section">
+      <div class="paste-header">
+        <button id="paste-toggle" type="button" aria-expanded="false" aria-controls="paste-panel">
+          Paste cURL
+        </button>
       </div>
-      <div class="toolbar-actions">
-        <button id="paste-toggle" type="button">Paste cURL</button>
-        <button id="clear" type="button">Clear</button>
+      <div id="paste-panel" class="paste-panel hidden">
+        <textarea
+          id="curl-input"
+          placeholder="Paste a copied curl command here (⌘V / Ctrl+V)..."
+          aria-label="cURL command"></textarea>
+        <div class="paste-actions">
+          <button id="decode-curl" type="button">Decode</button>
+          <button id="clear-curl" type="button">Clear cURL</button>
+        </div>
+        <div id="paste-error" class="error hidden"></div>
       </div>
-    </header>
-
-    <section id="paste-panel" class="paste-panel hidden">
-      <textarea id="curl-input" placeholder="Paste a copied curl command here..."></textarea>
-      <div class="paste-actions">
-        <button id="decode-curl" type="button">Decode</button>
-      </div>
-      <div id="paste-error" class="error hidden"></div>
     </section>
 
     <main class="layout">
-      <aside class="request-list" id="request-list">
-        <div class="empty-state" id="empty-state">
-          Listening for network requests with <code>jzb=</code> in the URL.
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <input
+            id="search"
+            type="search"
+            placeholder="Filter requests..."
+            aria-label="Filter captured requests">
+          <button id="clear-requests" type="button">Clear list</button>
+        </div>
+        <div class="request-list" id="request-list">
+          <div class="empty-state" id="empty-state">
+            Listening for network requests with <code>jzb=</code> in the URL.
+          </div>
         </div>
       </aside>
+      <div
+        id="layout-resizer"
+        class="layout-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize request list"
+        aria-valuemin="200"
+        aria-valuemax="800"
+        tabindex="0"></div>
       <section class="detail" id="detail">
         <div class="detail-empty" id="detail-empty">
           Select a captured request to view the decoded payload.

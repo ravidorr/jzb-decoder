@@ -34,16 +34,12 @@ chrome.runtime.onConnect.addListener((port) => {
                 const payload = await JzbDecoder.decodeJzb(jzb);
                 const urls = JzbDecoder.extractUrlsFromCurl(message.curl);
                 const requestUrl = urls[0] || '(pasted curl)';
-                const item = buildCapturedRequest(
-                    {
-                        request: {
-                            url: requestUrl,
-                            method: 'PASTE'
-                        }
-                    },
+                const item = JzbDecoder.buildCapturedItem({
+                    requestUrl,
+                    method: 'PASTE',
                     payload,
                     jzb
-                );
+                });
 
                 capturedRequests.unshift(item);
                 port.postMessage({ type: 'request', item });
@@ -70,7 +66,12 @@ chrome.devtools.network.onRequestFinished.addListener(async (request) => {
 
     try {
         const payload = await JzbDecoder.decodeJzb(jzb);
-        const item = buildCapturedRequest(request, payload, jzb);
+        const item = JzbDecoder.buildCapturedItem({
+            requestUrl: request.request.url,
+            method: request.request.method,
+            payload,
+            jzb
+        });
 
         capturedRequests.unshift(item);
 
@@ -101,18 +102,3 @@ chrome.devtools.network.onRequestFinished.addListener(async (request) => {
     }
 });
 
-function buildCapturedRequest (request, payload, jzb) {
-    const summary = JzbDecoder.summarizePayload(payload);
-
-    return {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        capturedAt: Date.now(),
-        requestUrl: request.request.url,
-        method: request.request.method,
-        jzbLength: jzb.length,
-        payload,
-        summary,
-        label: JzbDecoder.buildRequestLabel(summary, request.request.url),
-        error: null
-    };
-}
