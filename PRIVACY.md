@@ -33,4 +33,4 @@ If this policy changes, the updated text will be published in the extension repo
 
 ## Contact
 
-For privacy questions, open an issue in the extension's source repository or contact the maintainer listed on the Chrome Web Store listing.
+For privacy questions, open an issue at https://github.com/ravidorr/jzb-decoder/issues or contact the maintainer listed on the Chrome Web Store listing.

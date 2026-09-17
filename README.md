@@ -2,6 +2,11 @@
 
 Chrome DevTools extension that watches network traffic for requests containing a `jzb=` query parameter, decodes the zlib-compressed JSON payload, and shows it in a **Decipher JZB** panel.
 
+- Repository: https://github.com/ravidorr/jzb-decoder
+- Privacy policy: https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- License: [MIT](LICENSE)
+
 ## What is `jzb`?
 
 `jzb` is a transport format for compressed JSON embedded in a URL query parameter. Payloads are typically:
@@ -45,7 +50,7 @@ npm run package
 
 ## Privacy
 
-Decoding happens locally in the browser. The extension does not request host permissions and does not send captured payloads anywhere else. See [PRIVACY.md](PRIVACY.md) for the full privacy policy text used in the store listing.
+Decoding happens locally in the browser. The extension does not request host permissions and does not send captured payloads anywhere else. See [PRIVACY.md](PRIVACY.md) or the hosted copy at https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md for the store listing privacy policy URL.
 
 Treat decoded output as sensitive because payloads may include user or session identifiers.
 
@@ -55,7 +60,7 @@ Treat decoded output as sensitive because payloads may include user or session i
 
 - Icons are included at `icons/icon16.png`, `icons/icon48.png`, and `icons/icon128.png`
 - Add screenshots using the guide in [docs/screenshots/README.md](docs/screenshots/README.md)
-- Host `PRIVACY.md` at a public URL (for example GitHub Pages or the repository default branch) and use that URL in the store listing
+- Use the hosted privacy policy URL: https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md
 
 ### 2. Build the upload zip
 
@@ -88,7 +93,7 @@ Expected runtime files in `dist/jzb-decoder/` and at the zip root:
    - Name: `JZB Decoder`
    - Summary: decode `jzb` payloads from DevTools network traffic
    - Category: Developer Tools
-   - Privacy policy URL: public URL for `PRIVACY.md`
+   - Privacy policy URL: https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md
 5. Upload screenshots from `docs/screenshots/`
 6. Submit for review
 

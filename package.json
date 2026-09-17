@@ -3,6 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "description": "Chrome DevTools extension for decoding jzb URL payloads.",
+  "license": "MIT",
+  "author": "Raanan Avidor",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ravidorr/jzb-decoder.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ravidorr/jzb-decoder/issues"
+  },
+  "homepage": "https://github.com/ravidorr/jzb-decoder#readme",
   "scripts": {
     "test": "node jzb.test.js",
     "package": "bash scripts/package.sh",
