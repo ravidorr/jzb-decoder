@@ -1,13 +1,35 @@
 const port = chrome.runtime.connect({ name: 'jzb-panel' });
 let portConnected = true;
 
+function normalizeThemeName (theme) {
+    const raw = typeof theme === 'string'
+        ? theme
+        : theme?.themeName ?? chrome.devtools.panels.themeName ?? 'default';
+
+    if (raw === 'dark') {
+        return 'dark';
+    }
+
+    return 'default';
+}
+
 function applyDevToolsTheme (theme) {
-    const themeName = theme || chrome.devtools.panels.themeName || 'default';
-    document.documentElement.dataset.theme = themeName;
+    document.documentElement.dataset.theme = normalizeThemeName(theme);
+}
+
+function registerThemeChangeHandler () {
+    const panels = chrome.devtools.panels;
+
+    if (typeof panels.setThemeChangeHandler === 'function') {
+        panels.setThemeChangeHandler(applyDevToolsTheme);
+        return;
+    }
+
+    panels.onThemeChanged?.addListener?.(applyDevToolsTheme);
 }
 
 applyDevToolsTheme();
-chrome.devtools.panels.setThemeChangeHandler(applyDevToolsTheme);
+registerThemeChangeHandler();
 
 const requestListEl = document.getElementById('request-list');
 const emptyStateEl = document.getElementById('empty-state');

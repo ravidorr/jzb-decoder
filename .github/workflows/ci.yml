@@ -41,3 +41,4 @@ jobs:
           unzip -l dist/jzb-decoder.zip | grep -q 'manifest.json'
           unzip -l dist/jzb-decoder.zip | grep -q 'icons/icon128.png'
           unzip -l dist/jzb-decoder.zip | grep -q 'jzb.js'
+          bash scripts/verify-package.sh

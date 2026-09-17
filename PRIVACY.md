@@ -2,7 +2,7 @@
 
 **Last updated:** September 17, 2026
 
-JZB Decoder is a Chrome DevTools extension that decodes `jzb` query-parameter payloads
+JZB Decoder is a browser DevTools extension that decodes `jzb` query-parameter payloads
 from network requests you inspect in DevTools.
 
 ## Data collection
@@ -15,7 +15,7 @@ This extension does **not** collect, store, transmit, or sell personal data.
 
 ## How your data is handled
 
-- Decoding happens **locally in your browser** on the machine where Chrome is running.
+- Decoding happens **locally in your browser** on the machine where your browser is running.
 - The extension watches DevTools network activity only while DevTools is open and only for requests whose URL contains `jzb=`.
 - Captured and decoded payloads are kept in DevTools panel memory for the current DevTools session
   and are cleared when you click **Clear** or close DevTools.
@@ -23,7 +23,7 @@ This extension does **not** collect, store, transmit, or sell personal data.
 
 ## Permissions
 
-The extension uses Chrome's DevTools APIs only. It does **not** request host permissions or broad site access.
+The extension uses browser DevTools APIs only. It does **not** request host permissions or broad site access.
 
 ## Sensitive information
 
@@ -34,10 +34,10 @@ Treat decoded output as sensitive and share it only with people and systems you 
 ## Changes
 
 If this policy changes, the updated text will be published in the extension repository
-and reflected in the Chrome Web Store listing.
+and reflected in the extension store listings.
 
 ## Contact
 
 For privacy questions, open an issue at
 [github.com/ravidorr/jzb-decoder/issues](https://github.com/ravidorr/jzb-decoder/issues)
-or contact the maintainer listed on the Chrome Web Store listing.
+or contact the maintainer listed on the extension store listings.

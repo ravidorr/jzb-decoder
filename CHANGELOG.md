@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - c8 coverage reporting with `npm run test:coverage` and a 90% per-file threshold
 - `devtools.test.js`, `panel.test.js`, and a shared browser test harness
 - CI and pre-commit enforcement of the coverage gate
+- Firefox AMO support via `browser_specific_settings.gecko` in `manifest.json`
+- Cross-browser DevTools theme handling for Chrome, Edge, and Firefox
+- Publishing guides for Microsoft Edge Add-ons and Firefox AMO
 
 ### Fixed
 

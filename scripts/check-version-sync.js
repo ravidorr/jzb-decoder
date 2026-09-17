@@ -31,4 +31,16 @@ if (manifest.version !== packageJson.version) {
     );
 }
 
+const gecko = manifest.browser_specific_settings?.gecko;
+
+if (!gecko?.id) {
+    fail('manifest.json must include browser_specific_settings.gecko.id for Firefox AMO publishing.');
+}
+
+const dataCollectionPermissions = gecko.data_collection_permissions?.required;
+
+if (!Array.isArray(dataCollectionPermissions) || !dataCollectionPermissions.includes('none')) {
+    fail('manifest.json must set browser_specific_settings.gecko.data_collection_permissions.required to include "none".');
+}
+
 console.log(`Version check passed: ${manifest.version}`);

@@ -229,6 +229,20 @@ async function runPanelTests () {
         assert.equal(dom.document.documentElement.dataset.theme, 'dark');
     });
 
+    localThis.test('applies devtools theme changes via onThemeChanged', async () => {
+        resetExtensionModules();
+        const { dom, triggerThemeChange } = loadPanel({ themeApi: 'firefox' });
+
+        triggerThemeChange('dark');
+        assert.equal(dom.document.documentElement.dataset.theme, 'dark');
+
+        triggerThemeChange('light');
+        assert.equal(dom.document.documentElement.dataset.theme, 'default');
+
+        triggerThemeChange('firebug');
+        assert.equal(dom.document.documentElement.dataset.theme, 'default');
+    });
+
     localThis.test('renders filter-empty state and reselects visible requests', async () => {
         resetExtensionModules();
         const { panelPort, dom } = loadPanel();

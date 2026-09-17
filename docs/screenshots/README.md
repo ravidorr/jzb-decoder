@@ -1,4 +1,4 @@
-# Chrome Web Store screenshots
+# Store screenshots
 
 Capture screenshots after loading the unpacked extension and opening the **Decipher JZB** DevTools panel.
 
@@ -49,6 +49,7 @@ Review the output image before uploading. Add manual redaction if your layout di
 
 ## Store listing notes
 
-- Use at least one screenshot at 1280x800 or 640x400.
+- **Chrome / Firefox:** use at least one screenshot at 1280x800 or 640x400.
+- **Edge:** use at least one 1280x800 screenshot and a separate 300x300 store logo.
 - Prefer synthetic or internal test accounts when capturing.
 - Replace `panel-overview.png` with your own redacted capture before publishing.

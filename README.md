@@ -1,6 +1,6 @@
 # JZB Decoder
 
-Chrome DevTools extension that watches network traffic for requests containing a `jzb=` query parameter,
+DevTools extension for Chrome, Edge, and Firefox that watches network traffic for requests containing a `jzb=` query parameter,
 decodes the zlib-compressed JSON payload, and shows it in a **Decipher JZB** panel.
 
 - Repository: [github.com/ravidorr/jzb-decoder](https://github.com/ravidorr/jzb-decoder)
@@ -21,7 +21,9 @@ The format is common in analytics beacon URLs (for example Pendo `ptm.gif` reque
 but this extension is **format-specific, not product-specific**.
 It does not depend on any vendor SDK, API, or backend.
 
-## Load in Chrome
+## Install
+
+### Chrome
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
@@ -29,6 +31,25 @@ It does not depend on any vendor SDK, API, or backend.
 4. Select this repository root
 5. Open DevTools on any page
 6. Open the **Decipher JZB** panel from the DevTools tab bar
+
+### Edge
+
+1. Open `edge://extensions`
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select this repository root
+5. Open DevTools on any page
+6. Open the **Decipher JZB** panel from the DevTools tab bar
+
+### Firefox
+
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Select `manifest.json` from this repository root
+4. Open DevTools on any page
+5. Open the **Decipher JZB** panel from the DevTools tab bar
+
+On Firefox, open the **Network** tab at least once per DevTools session before auto-capture starts.
 
 ## Features
 
@@ -67,7 +88,7 @@ Update `CHANGELOG.md`, then commit, tag (`v1.0.1`), package, and publish.
 `npm run package` writes:
 
 - `dist/jzb-decoder/` unpacked extension files for inspection
-- `dist/jzb-decoder.zip` for Chrome Web Store upload
+- `dist/jzb-decoder.zip` for Chrome Web Store, Microsoft Edge Add-ons, and Firefox AMO upload
 
 ## Privacy
 
@@ -79,7 +100,15 @@ for the store listing privacy policy URL.
 
 Treat decoded output as sensitive because payloads may include user or session identifiers.
 
-## Publishing to the Chrome Web Store
+## Publishing
+
+Store-specific submission steps:
+
+- Chrome Web Store: see below
+- Microsoft Edge Add-ons: [docs/publishing/edge.md](docs/publishing/edge.md)
+- Firefox AMO: [docs/publishing/firefox.md](docs/publishing/firefox.md)
+
+### Chrome Web Store
 
 ### 1. Prepare the listing assets
 
@@ -133,5 +162,5 @@ Before each release:
 
 ## Notes
 
-Chrome does not allow extensions to add items to the native Network right-click menu.
+Chromium-based browsers do not allow extensions to add items to the native Network right-click menu.
 The DevTools panel is the supported integration point.

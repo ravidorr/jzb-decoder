@@ -309,20 +309,31 @@ function createMockPort (name = 'jzb-panel', { throwOnPost = false } = {}) {
     };
 }
 
-function createChromeMock () {
+function createChromeMock ({ themeApi = 'chrome' } = {}) {
     const connectListeners = [];
     const networkListeners = [];
     let themeChangeHandler = null;
+    const themeChangedListeners = [];
+
+    const panels = {
+        themeName: 'default',
+        create () {},
+        onThemeChanged: {
+            addListener (listener) {
+                themeChangedListeners.push(listener);
+            }
+        }
+    };
+
+    if (themeApi === 'chrome') {
+        panels.setThemeChangeHandler = (handler) => {
+            themeChangeHandler = handler;
+        };
+    }
 
     const chrome = {
         devtools: {
-            panels: {
-                themeName: 'default',
-                create () {},
-                setThemeChangeHandler (handler) {
-                    themeChangeHandler = handler;
-                }
-            },
+            panels,
             network: {
                 onRequestFinished: {
                     addListener (listener) {
@@ -348,7 +359,14 @@ function createChromeMock () {
         connectListeners,
         networkListeners,
         triggerThemeChange (theme) {
-            themeChangeHandler?.(theme);
+            if (themeChangeHandler) {
+                themeChangeHandler(theme);
+                return;
+            }
+
+            for (const listener of themeChangedListeners) {
+                listener(theme);
+            }
         }
     };
 }
@@ -375,8 +393,8 @@ function loadDevtools () {
     return harness;
 }
 
-function loadPanel ({ execCommandImpl, localStorageValues } = {}) {
-    const harness = createChromeMock();
+function loadPanel ({ execCommandImpl, localStorageValues, themeApi } = {}) {
+    const harness = createChromeMock({ themeApi });
     const dom = createDom({ execCommandImpl });
     const panelPort = createMockPort('jzb-panel');
     const postedToDevtools = [];
