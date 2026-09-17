@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-09-17
+
+### Added
+
+- Size limits on `jzb` base64, compressed, and decompressed payloads, plus pasted cURL text
+- `isCapturedItem` validation for devtools/panel port messages
+
+### Fixed
+
+- `highlightJson` uses a fixed CSS class map instead of dynamic class names from key strings
+
 ## [1.1.3] - 2026-09-17
 
 ### Fixed

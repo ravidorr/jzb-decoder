@@ -1,4 +1,8 @@
 const MAX_CAPTURED_REQUESTS = 200;
+const MAX_JZB_BASE64_LENGTH = 512 * 1024;
+const MAX_COMPRESSED_BYTES = 256 * 1024;
+const MAX_DECOMPRESSED_CHARS = 2 * 1024 * 1024;
+const MAX_CURL_TEXT_LENGTH = 512 * 1024;
 
 const JzbDecoder = (() => {
     function padBase64Url (jzb) {
@@ -17,9 +21,18 @@ const JzbDecoder = (() => {
         }
 
         const trimmed = jzb.trim();
+
+        if (trimmed.length > MAX_JZB_BASE64_LENGTH) {
+            throw new Error('jzb parameter exceeds maximum allowed size');
+        }
+
         const padded = padBase64Url(trimmed);
         const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
         const binary = atob(base64);
+
+        if (binary.length > MAX_COMPRESSED_BYTES) {
+            throw new Error('jzb payload exceeds maximum allowed size');
+        }
 
         return Uint8Array.from(binary, (char) => char.charCodeAt(0));
     }
@@ -36,6 +49,10 @@ const JzbDecoder = (() => {
             try {
                 const stream = new Blob([ attempt ]).stream().pipeThrough(new DecompressionStream('deflate'));
                 const text = await new Response(stream).text();
+
+                if (text.length > MAX_DECOMPRESSED_CHARS) {
+                    throw new Error('Decompressed jzb payload exceeds maximum allowed size');
+                }
 
                 return JSON.parse(text);
             } catch (error) {
@@ -135,6 +152,10 @@ const JzbDecoder = (() => {
 
     function extractJzbSourceFromCurl (curlText) {
         if (!curlText) return null;
+
+        if (curlText.length > MAX_CURL_TEXT_LENGTH) {
+            return null;
+        }
 
         const normalized = normalizeCurlText(curlText);
 
@@ -302,6 +323,13 @@ const JzbDecoder = (() => {
         'type'
     ]);
     const HIGHLIGHT_JSON_KEY_PATTERN = Array.from(HIGHLIGHT_JSON_KEYS).join('|');
+    const HIGHLIGHT_JSON_VALUE_CLASSES = {
+        track_event_name: 'json-value-track_event_name',
+        props: 'json-value-props',
+        visitor_id: 'json-value-visitor_id',
+        account_id: 'json-value-account_id',
+        type: 'json-value-type'
+    };
 
     function escapeHtml (value) {
         return String(value)
@@ -324,13 +352,52 @@ const JzbDecoder = (() => {
 
             const [ , indent, key, separator, value ] = keyMatch;
             const keyName = key.slice(1, -1);
+            const valueClass = HIGHLIGHT_JSON_VALUE_CLASSES[ keyName ];
 
-            return `${escapeHtml(indent)}<span class="json-key">${escapeHtml(key)}</span>${escapeHtml(separator)}<span class="json-value json-value-${keyName}">${escapeHtml(value)}</span>`;
+            if (!valueClass) {
+                return escapeHtml(line);
+            }
+
+            return `${escapeHtml(indent)}<span class="json-key">${escapeHtml(key)}</span>${escapeHtml(separator)}<span class="json-value ${valueClass}">${escapeHtml(value)}</span>`;
         }).join('\n');
+    }
+
+    function isCapturedItem (item) {
+        if (!item || typeof item !== 'object') {
+            return false;
+        }
+
+        if (typeof item.id !== 'string' || !item.id) {
+            return false;
+        }
+
+        if (typeof item.requestUrl !== 'string' || typeof item.method !== 'string') {
+            return false;
+        }
+
+        if (typeof item.capturedAt !== 'number' || !Number.isFinite(item.capturedAt)) {
+            return false;
+        }
+
+        if (typeof item.label !== 'string' || !Array.isArray(item.summary)) {
+            return false;
+        }
+
+        if (item.error !== null && typeof item.error !== 'string') {
+            return false;
+        }
+
+        if (item.error === null && !('payload' in item)) {
+            return false;
+        }
+
+        return true;
     }
 
     return {
         MAX_CAPTURED_REQUESTS,
+        MAX_JZB_BASE64_LENGTH,
+        MAX_CURL_TEXT_LENGTH,
         base64UrlToBytes,
         decodeJzb,
         extractJzbFromUrl,
@@ -348,7 +415,8 @@ const JzbDecoder = (() => {
         buildCapturedItem,
         buildErrorCapturedItem,
         matchesCapturedRequestSearch,
-        highlightJson
+        highlightJson,
+        isCapturedItem
     };
 })();
 

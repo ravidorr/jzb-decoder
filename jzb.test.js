@@ -32,6 +32,8 @@ function buildWrappedJzb (payload) {
     const localThis = this;
     const {
         MAX_CAPTURED_REQUESTS,
+        MAX_JZB_BASE64_LENGTH,
+        MAX_CURL_TEXT_LENGTH,
         base64UrlToBytes,
         decodeJzb,
         extractJzbFromUrl,
@@ -48,7 +50,8 @@ function buildWrappedJzb (payload) {
         trimCapturedRequestArray,
         trimCapturedRequestMap,
         matchesCapturedRequestSearch,
-        highlightJson
+        highlightJson,
+        isCapturedItem
     } = localThis.JzbDecoder;
 
     assert.equal(MAX_CAPTURED_REQUESTS, 200);
@@ -254,6 +257,27 @@ function buildWrappedJzb (payload) {
 
     const bytes = base64UrlToBytes(SAMPLE_JZB);
     assert.ok(bytes instanceof Uint8Array);
+
+    assert.throws(
+        () => base64UrlToBytes('a'.repeat(MAX_JZB_BASE64_LENGTH + 1)),
+        /exceeds maximum allowed size/
+    );
+
+    assert.equal(extractJzbSourceFromCurl('a'.repeat(MAX_CURL_TEXT_LENGTH + 1)), null);
+
+    assert.equal(isCapturedItem(searchItem), true);
+    assert.equal(isCapturedItem(errorItem), true);
+    assert.equal(isCapturedItem(null), false);
+    assert.equal(isCapturedItem({ id: 'x' }), false);
+    assert.equal(isCapturedItem({
+        id: 'x',
+        requestUrl: 'https://example.com',
+        method: 'GET',
+        capturedAt: 1,
+        label: 'test',
+        summary: [],
+        error: 'failed'
+    }), true);
 
     console.log('jzb decoder tests passed');
 })().catch((error) => {

@@ -45,13 +45,25 @@ port.onDisconnect.addListener(() => {
 });
 
 port.onMessage.addListener((message) => {
+    if (!message || typeof message !== 'object' || typeof message.type !== 'string') {
+        return;
+    }
+
     if (message.type === 'init') {
-        message.requests.forEach(addRequest);
+        if (!Array.isArray(message.requests)) {
+            return;
+        }
+
+        message.requests.filter(JzbDecoder.isCapturedItem).forEach(addRequest);
         renderList();
         return;
     }
 
     if (message.type === 'request') {
+        if (!JzbDecoder.isCapturedItem(message.item)) {
+            return;
+        }
+
         addRequest(message.item);
         selectedId = message.item.id;
         renderList({ syncSelection: false });
@@ -65,7 +77,7 @@ port.onMessage.addListener((message) => {
         return;
     }
 
-    if (message.type === 'decode-error') {
+    if (message.type === 'decode-error' && typeof message.error === 'string') {
         showPasteError(message.error);
     }
 

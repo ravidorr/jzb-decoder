@@ -28,6 +28,22 @@ function addCapturedItem (item, generation = captureGeneration) {
     safePostMessage(panelPort, { type: 'request', item });
 }
 
+function isPanelMessage (message) {
+    if (!message || typeof message !== 'object' || typeof message.type !== 'string') {
+        return false;
+    }
+
+    if (message.type === 'clear') {
+        return true;
+    }
+
+    if (message.type === 'decode-curl') {
+        return typeof message.curl === 'string' && message.curl.length <= JzbDecoder.MAX_CURL_TEXT_LENGTH;
+    }
+
+    return false;
+}
+
 async function buildItemFromJzb ({ requestUrl, method, jzb }) {
     try {
         const payload = await JzbDecoder.decodeJzb(jzb);
@@ -57,6 +73,10 @@ chrome.runtime.onConnect.addListener((port) => {
     });
 
     port.onMessage.addListener(async (message) => {
+        if (!isPanelMessage(message)) {
+            return;
+        }
+
         if (message.type === 'clear') {
             captureGeneration += 1;
             capturedRequests.length = 0;
