@@ -1,10 +1,10 @@
 const assert = require('assert');
-const { SAMPLE_JZB, buildSampleCurl } = require('./test/fixtures');
+const { SAMPLE_JZB, buildSampleCurl } = require('./fixtures');
 const {
     createMockPort,
     resetExtensionModules,
     loadDevtools
-} = require('./test/browser-harness');
+} = require('./browser-harness');
 
 async function runDevtoolsTests () {
     const localThis = this;

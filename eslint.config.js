@@ -60,7 +60,6 @@ module.exports = [
     {
         files: [
             'scripts/**/*.js',
-            '*.test.js',
             'test/**/*.js',
             'eslint.config.js'
         ],

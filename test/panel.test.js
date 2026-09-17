@@ -1,9 +1,9 @@
 const assert = require('assert');
-const { SAMPLE_JZB, buildSampleCurl } = require('./test/fixtures');
+const { SAMPLE_JZB, buildSampleCurl } = require('./fixtures');
 const {
     resetExtensionModules,
     loadPanel
-} = require('./test/browser-harness');
+} = require('./browser-harness');
 
 function buildCapturedItem () {
     return global.JzbDecoder.buildCapturedItem({
@@ -513,7 +513,7 @@ async function runPanelTests () {
             createChromeMock,
             createMockPort,
             loadJzbDecoder
-        } = require('./test/browser-harness');
+        } = require('./browser-harness');
         const dom = createDom();
         const panelPort = createMockPort('jzb-panel');
 
@@ -540,7 +540,7 @@ async function runPanelTests () {
         });
 
         loadJzbDecoder();
-        require('./panel.js');
+        require('../panel.js');
 
         dom.elements[ 'clear-requests' ].click();
 

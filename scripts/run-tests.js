@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const runJzbTests = require('../jzb.test.js');
-const runDevtoolsTests = require('../devtools.test.js');
-const runPanelTests = require('../panel.test.js');
+const runJzbTests = require('../test/jzb.test.js');
+const runDevtoolsTests = require('../test/devtools.test.js');
+const runPanelTests = require('../test/panel.test.js');
 
 async function runSuite (suiteFn) {
     const tests = [];
