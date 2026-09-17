@@ -1,4 +1,5 @@
 const port = chrome.runtime.connect({ name: 'jzb-panel' });
+let portConnected = true;
 
 function applyDevToolsTheme (theme) {
     const themeName = theme || chrome.devtools.panels.themeName || 'default';
@@ -17,6 +18,7 @@ const detailJsonEl = document.getElementById('detail-json');
 const pastePanelEl = document.getElementById('paste-panel');
 const pasteToggleEl = document.getElementById('paste-toggle');
 const pasteErrorEl = document.getElementById('paste-error');
+const pasteHintEl = document.getElementById('paste-hint');
 const curlInputEl = document.getElementById('curl-input');
 const searchInputEl = document.getElementById('search');
 const copyJsonButtonEl = document.getElementById('copy-json');
@@ -34,6 +36,11 @@ let searchQuery = '';
 let copyStatusTimeout = null;
 
 initLayoutResizer();
+
+port.onDisconnect.addListener(() => {
+    portConnected = false;
+    showConnectionLostMessage();
+});
 
 port.onMessage.addListener((message) => {
     if (message.type === 'init') {
@@ -53,7 +60,6 @@ port.onMessage.addListener((message) => {
         requests.clear();
         selectedId = null;
         renderList();
-        renderDetail();
         return;
     }
 
@@ -65,7 +71,7 @@ port.onMessage.addListener((message) => {
 });
 
 document.getElementById('clear-requests').addEventListener('click', () => {
-    port.postMessage({ type: 'clear' });
+    postToDevtools({ type: 'clear' });
 });
 
 pasteToggleEl.addEventListener('click', () => {
@@ -77,15 +83,20 @@ pasteToggleEl.addEventListener('click', () => {
         return;
     }
 
+    hidePasteHint();
     pasteErrorEl.textContent = '';
     pasteErrorEl.classList.add('hidden');
     curlInputEl.focus();
-    tryPasteIntoTextarea(curlInputEl);
+
+    if (!tryPasteIntoTextarea(curlInputEl)) {
+        showPasteHint('Clipboard paste unavailable. Paste manually with ⌘V / Ctrl+V.');
+    }
 });
 
 document.getElementById('decode-curl').addEventListener('click', () => {
+    hidePasteHint();
     pasteErrorEl.classList.add('hidden');
-    port.postMessage({
+    postToDevtools({
         type: 'decode-curl',
         curl: curlInputEl.value
     });
@@ -93,6 +104,7 @@ document.getElementById('decode-curl').addEventListener('click', () => {
 
 document.getElementById('clear-curl').addEventListener('click', () => {
     curlInputEl.value = '';
+    hidePasteHint();
     pasteErrorEl.textContent = '';
     pasteErrorEl.classList.add('hidden');
     curlInputEl.focus();
@@ -147,34 +159,79 @@ function copyTextToClipboard (text) {
     return copied;
 }
 
+function postToDevtools (message) {
+    if (!portConnected) {
+        showConnectionLostMessage();
+        return false;
+    }
+
+    try {
+        port.postMessage(message);
+        return true;
+    } catch {
+        portConnected = false;
+        showConnectionLostMessage();
+        return false;
+    }
+}
+
+function showConnectionLostMessage () {
+    pasteErrorEl.textContent = 'Connection lost. Close and reopen the Decipher JZB panel.';
+    pasteErrorEl.classList.remove('hidden');
+}
+
+function showPasteHint (message) {
+    pasteHintEl.textContent = message;
+    pasteHintEl.classList.remove('hidden');
+}
+
+function hidePasteHint () {
+    pasteHintEl.textContent = '';
+    pasteHintEl.classList.add('hidden');
+}
+
 function addRequest (item) {
     requests.set(item.id, item);
+    trimRequests();
+}
+
+function trimRequests () {
+    if (requests.size <= JzbDecoder.MAX_CAPTURED_REQUESTS) {
+        return;
+    }
+
+    const sorted = [ ...requests.values() ].sort((left, right) => right.capturedAt - left.capturedAt);
+    const keepIds = new Set(
+        sorted.slice(0, JzbDecoder.MAX_CAPTURED_REQUESTS).map((item) => item.id)
+    );
+
+    for (const id of requests.keys()) {
+        if (!keepIds.has(id)) {
+            requests.delete(id);
+        }
+    }
+
+    if (selectedId && !requests.has(selectedId)) {
+        selectedId = null;
+    }
 }
 
 function getFilteredRequests () {
-    if (!searchQuery) {
-        return [ ...requests.values() ];
-    }
-
-    return [ ...requests.values() ].filter((item) => matchesSearch(item, searchQuery));
+    return [ ...requests.values() ].filter((item) => (
+        JzbDecoder.matchesCapturedRequestSearch(item, searchQuery)
+    ));
 }
 
-function matchesSearch (item, query) {
-    const haystack = [
-        item.label,
-        item.method,
-        item.requestUrl,
-        item.error,
-        ...(item.summary || []).flatMap((summary) => [
-            summary.type,
-            summary.trackEventName,
-            summary.visitorId,
-            summary.accountId,
-            summary.url
-        ])
-    ].filter(Boolean).join(' ').toLowerCase();
+function syncSelectionToFilter (filteredRequests) {
+    if (!selectedId) {
+        return;
+    }
 
-    return haystack.includes(query);
+    if (filteredRequests.some((item) => item.id === selectedId)) {
+        return;
+    }
+
+    selectedId = filteredRequests[0]?.id ?? null;
 }
 
 function renderList () {
@@ -186,18 +243,23 @@ function renderList () {
     if (!requests.size) {
         emptyStateEl.classList.remove('hidden');
         emptyStateEl.innerHTML = 'Listening for network requests with <code>jzb=</code> in the URL.';
+        renderDetail();
         return;
     }
 
     emptyStateEl.classList.add('hidden');
 
     if (!filteredRequests.length) {
+        syncSelectionToFilter(filteredRequests);
         const message = document.createElement('div');
         message.className = 'filter-empty';
         message.textContent = `No requests match "${searchQuery}".`;
         requestListEl.appendChild(message);
+        renderDetail();
         return;
     }
+
+    syncSelectionToFilter(filteredRequests);
 
     filteredRequests.forEach((item) => {
         const button = document.createElement('button');
@@ -219,12 +281,13 @@ function renderList () {
         button.addEventListener('click', () => selectRequest(item.id));
         requestListEl.appendChild(button);
     });
+
+    renderDetail();
 }
 
 function selectRequest (id) {
     selectedId = id;
     renderList();
-    renderDetail();
 }
 
 function renderDetail () {

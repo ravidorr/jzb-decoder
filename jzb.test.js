@@ -9,51 +9,70 @@ const GUIDE_JZB = 'eJx9lNtzokgUh_8XnkOkrzS-4QXviCY4mq0tCgGRgIA0F-PW_O_TZmazVVuEF
 const SEGMENTFLAG_JZB = 'eJx9jcGuwiAQRf9l1hXaajSvO42aGBNfF-4JKaQScUAKrcb03wsLu3Q3ufeeMx_oVae8cScBFbD6cNn_syur7_b5eu9kcT5CBrxpTECfJhi0zuAhPRfcc6hmPp3qh0NzbANvZVxIhHGWfrkkjqnlTqLfzl2M4qNEFRua_9EyL9fR1kvXKYMxLslyVZCcWWfEQplkDk7H4ua97SpKh2EgVqIwRBkK4wTQ1k6O';
 const LOAD_JZB = 'eJzdVVtTGj8U_ypOnkHYcnH1TQWmyFRptf9qO_9hstnDkiGbrMlZYXX47p7NokWmOtqpfSg8kOy5_C45ZH_cMSwyYAdMGR6zGousWTiwE5QpPQ32wv1up9Vqt4Juu8ZupJNo7ETGVDAZ9097Z5OLyXieXS-LIwhGA2rAhTC5Rp-jc6VqLLeK0meImTtoNBaLxW4GOja70jQoP7Mmc-zgzhNYw4bNcEURbkHjBY-Gj62w2rBgfjIetO3gCs6jzugopD5Ty1PwwbacHo4uo-vTfnscC7GgoAPnpNE-fLrsqe5tES-_3wb5UPUpnGNaMhAzrjWUZHvSgkBGJBwkKbEYKJ64j9zNKKiH1lyehXEwhONvXz7hKCw6YXL-Ify8d3I-t12IZNY8vom6X42Hvs5BC1LVJHcLBBLb6nZWtUfnp0bk7gXr6fvO1iO3CWC1SqjgkIIeiH6FohRmsC6MmUuoZ0ZJUdSV1HOKokRFZCs0jmh9v5mF6XO4ChKuGlWzqlej9DkthjqGJekmyJlU8XpLpuGSqLFjX7Ez9iUleT8dfQX-6CreveF_D8yNBrS5wwe-CNTlQc1zxDd5EPAWj7chvglsSzRtXwuWWJNndDYaudRgNw_MxfM6yGSGO-uNMCpPdTlqf179NjDN8l_B2VT-jmjvOzFRee_YUs-GPLpycCcyiCYtD3Bh6p5BuY5yeqpdffqsx-VNKSserPnS_-sNo0ZWO0p8QvNVw91sPcUM938NenTWu_ot57c1rX5-_r3XCIldv0aCzn579f893ZaGgA';
 
-function base64UrlToBytes (jzb) {
-    const remainder = jzb.length % 4;
-
-    if (remainder === 1) {
-        throw new Error('jzb parameter looks truncated or malformed');
-    }
-
-    const padded = jzb + '='.repeat((4 - remainder) % 4);
-    const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
-
-    return Buffer.from(base64, 'base64');
+function toBase64Url (buffer) {
+    return buffer
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
 }
 
-function decodeJzbNode (jzb) {
-    const bytes = base64UrlToBytes(jzb);
-    const json = zlib.inflateSync(bytes).toString('utf8');
+function buildWrappedJzb (payload) {
+    const deflated = zlib.deflateSync(JSON.stringify(payload));
+    const wrapped = Buffer.concat([
+        Buffer.from([ 0x78, 0x01 ]),
+        deflated,
+        Buffer.from([ 0, 0, 0, 0 ])
+    ]);
 
-    return JSON.parse(json);
+    return toBase64Url(wrapped);
 }
 
-(function runTests () {
+(async function runTests () {
     const localThis = this;
     const {
+        MAX_CAPTURED_REQUESTS,
+        base64UrlToBytes,
+        decodeJzb,
         extractJzbFromUrl,
         extractJzbFromCurl,
         normalizeCurlText,
         extractUrlsFromCurl,
         summarizePayload,
+        formatTimestamp,
         buildRequestLabel,
         buildCapturedItem,
+        matchesCapturedRequestSearch,
         highlightJson
     } = localThis.JzbDecoder;
 
-    const payload = decodeJzbNode(SAMPLE_JZB);
+    assert.equal(MAX_CAPTURED_REQUESTS, 200);
 
+    const payload = await decodeJzb(SAMPLE_JZB);
     assert.equal(Array.isArray(payload), true);
     assert.equal(payload[0].type, 'track');
     assert.equal(payload[0].track_event_name, 'Object Analytics - Object created');
     assert.equal(payload[0].visitor_id, 'ravidor@pendo.io');
 
+    const wrappedJzb = buildWrappedJzb([ { type: 'wrapped' } ]);
+    const wrappedPayload = await decodeJzb(wrappedJzb);
+    assert.equal(wrappedPayload[ 0 ].type, 'wrapped');
+
+    assert.throws(() => base64UrlToBytes(''), /Missing jzb parameter/);
+    assert.throws(() => base64UrlToBytes('a'), /truncated or malformed/);
+    await assert.rejects(() => decodeJzb('!!!not-valid!!!'));
+
     const url = `https://data.pendo.io/data/ptm.gif/key?v=1&jzb=${SAMPLE_JZB}`;
     assert.equal(extractJzbFromUrl(url), SAMPLE_JZB);
+    assert.equal(extractJzbFromUrl('not a url'), null);
+
+    const encodedJzbUrl = `https://example.com/beacon?jzb=${encodeURIComponent(SAMPLE_JZB.slice(0, 80))}`;
+    assert.equal(extractJzbFromUrl(encodedJzbUrl), SAMPLE_JZB.slice(0, 80));
 
     const curl = `curl 'https://data.pendo.io/data/ptm.gif/key?jzb=${SAMPLE_JZB}&type=track'`;
     assert.equal(extractJzbFromCurl(curl), SAMPLE_JZB);
+    assert.equal(extractJzbFromCurl(''), null);
+    assert.equal(extractJzbFromCurl(null), null);
 
     const doubleQuotedCurl = `curl "https://example.com/beacon?jzb=${SAMPLE_JZB}&v=1"`;
     assert.equal(extractJzbFromCurl(doubleQuotedCurl), SAMPLE_JZB);
@@ -83,18 +102,14 @@ function decodeJzbNode (jzb) {
 
     assert.equal(extractJzbFromCurl('curl https://example.com/no-jzb-here'), null);
 
-    const loadPayload = decodeJzbNode(LOAD_JZB);
+    const loadPayload = await decodeJzb(LOAD_JZB);
     assert.equal(loadPayload[0].type, 'load');
     assert.equal(loadPayload[0].visitor_id, '_PENDO_T_PkpqxyBe1KF');
-
-    const loadPadding = '='.repeat((4 - LOAD_JZB.length % 4) % 4);
-    const loadBase64 = (LOAD_JZB + loadPadding).replace(/-/g, '+').replace(/_/g, '/');
-    assert.doesNotThrow(() => atob(loadBase64));
 
     const guideCurl = `curl --url 'https://app.pendo.io/data/guide.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=37&jzb=${GUIDE_JZB}&v=2.341.0_prod-io'`;
     assert.equal(extractJzbFromCurl(guideCurl), GUIDE_JZB);
 
-    const guidePayload = decodeJzbNode(GUIDE_JZB);
+    const guidePayload = await decodeJzb(GUIDE_JZB);
     const guideSummary = summarizePayload(guidePayload);
     assert.equal(guideSummary.length, 1);
     assert.equal(guideSummary[0].type, undefined);
@@ -106,29 +121,106 @@ function decodeJzbNode (jzb) {
 
     assert.deepEqual(summarizePayload(null), []);
     assert.deepEqual(summarizePayload(undefined), []);
+    const sparseSummary = summarizePayload([ null, { type: 'keep' } ]);
+    assert.equal(sparseSummary.length, 1);
+    assert.equal(sparseSummary[0].type, 'keep');
+    assert.equal(sparseSummary[0].eventCount, 2);
+    const singleSummary = summarizePayload({ type: 'single' });
+    assert.equal(singleSummary.length, 1);
+    assert.equal(singleSummary[0].type, 'single');
+    assert.equal(singleSummary[0].eventCount, 1);
+
+    const trackSummary = summarizePayload(payload);
+    assert.equal(trackSummary[0].trackEventName, 'Object Analytics - Object created');
+    assert.equal(trackSummary[0].visitorId, 'ravidor@pendo.io');
+    assert.equal(trackSummary[0].eventCount, payload.length);
+
+    const camelSummary = summarizePayload({
+        trackEventName: 'Camel Event',
+        visitorId: 'visitor-1',
+        accountId: 'account-1',
+        metadata: {
+            visitor: { id: 'metadata-visitor' },
+            account: { id: 'metadata-account' }
+        }
+    });
+    assert.equal(camelSummary[0].trackEventName, 'Camel Event');
+    assert.equal(camelSummary[0].visitorId, 'visitor-1');
+    assert.equal(camelSummary[0].accountId, 'account-1');
+
+    const metadataSummary = summarizePayload({
+        metadata: {
+            visitor: { id: 'metadata-visitor' },
+            account: { id: 'metadata-account' }
+        }
+    });
+    assert.equal(metadataSummary[0].visitorId, 'metadata-visitor');
+    assert.equal(metadataSummary[0].accountId, 'metadata-account');
+
+    assert.equal(
+        buildRequestLabel(trackSummary, url),
+        'Object Analytics - Object created'
+    );
+    assert.equal(buildRequestLabel([ { type: 'load' } ], url), 'load');
+    assert.equal(buildRequestLabel([], 'not-a-url'), 'not-a-url');
 
     const segmentFlagCurl = `curl --url 'https://app.pendo.io/data/segmentflag.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=34&jzb=${SEGMENTFLAG_JZB}&v=2.341.0_prod-io&ct=1789649537575'`;
     assert.equal(extractJzbFromCurl(segmentFlagCurl), SEGMENTFLAG_JZB);
 
-    const segmentFlagPayload = decodeJzbNode(SEGMENTFLAG_JZB);
+    const segmentFlagPayload = await decodeJzb(SEGMENTFLAG_JZB);
     const segmentFlagSummary = summarizePayload(segmentFlagPayload);
     assert.equal(segmentFlagSummary.length, 1);
     assert.equal(segmentFlagSummary[0].visitorId, '_PENDO_T_PkpqxyBe1KF');
+
     const segmentFlagItem = buildCapturedItem({
         requestUrl: 'https://app.pendo.io/data/segmentflag.js/50ff22c7-59c1-450a-68d3-f097e9eaa74c?id=34',
         method: 'PASTE',
         payload: segmentFlagPayload,
-        jzb: SEGMENTFLAG_JZB
+        jzb: SEGMENTFLAG_JZB,
+        id: 'segment-flag-item',
+        capturedAt: 1_700_000_000_000
     });
+    assert.equal(segmentFlagItem.id, 'segment-flag-item');
+    assert.equal(segmentFlagItem.capturedAt, 1_700_000_000_000);
+    assert.equal(segmentFlagItem.jzbLength, SEGMENTFLAG_JZB.length);
     assert.equal(segmentFlagItem.method, 'PASTE');
     assert.equal(segmentFlagItem.summary.length, 1);
-    assert.equal(segmentFlagItem.summary[0].visitorId, '_PENDO_T_PkpqxyBe1KF');
     assert.equal(segmentFlagItem.error, null);
+
+    const searchItem = buildCapturedItem({
+        requestUrl: 'https://example.com/beacon',
+        method: 'GET',
+        payload: payload,
+        jzb: SAMPLE_JZB
+    });
+    assert.equal(matchesCapturedRequestSearch(searchItem, ''), true);
+    assert.equal(matchesCapturedRequestSearch(searchItem, 'object analytics'), true);
+    assert.equal(matchesCapturedRequestSearch(searchItem, 'ravidor@pendo.io'), true);
+    assert.equal(matchesCapturedRequestSearch(searchItem, 'missing-value'), false);
+    assert.equal(matchesCapturedRequestSearch(searchItem, 'OBJECT ANALYTICS'), true);
+
+    assert.match(formatTimestamp(1_700_000_000_000), /\d/);
+    assert.equal(formatTimestamp(''), '');
+    assert.equal(formatTimestamp(null), '');
 
     const highlighted = highlightJson(payload);
     assert.match(highlighted, /<span class="json-key">&quot;track_event_name&quot;<\/span>/);
     assert.match(highlighted, /<span class="json-value json-value-visitor_id">/);
+    assert.match(highlighted, /<span class="json-value json-value-type">/);
     assert.match(highlighted, /&quot;Object Analytics - Object created&quot;/);
+    assert.doesNotMatch(highlighted, /<span class="json-key">&quot;sequence&quot;<\/span>/);
+
+    const malicious = [ { track_event_name: '<img onerror=alert(1) src=x>' } ];
+    const maliciousHtml = highlightJson(malicious);
+    assert.ok(!maliciousHtml.includes('<img'));
+    assert.ok(maliciousHtml.includes('&lt;'));
+    assert.ok(maliciousHtml.includes('&quot;'));
+
+    const bytes = base64UrlToBytes(SAMPLE_JZB);
+    assert.ok(bytes instanceof Uint8Array);
 
     console.log('jzb decoder tests passed');
-}).call(global);
+})().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});

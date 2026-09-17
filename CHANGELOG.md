@@ -6,11 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-17
+
 ### Added
 
-- ESLint for JavaScript, Stylelint for CSS, markdownlint for Markdown, and html-validate for HTML
-- Version sync check, bump scripts, and pre-commit hook
-- CI checks for version sync, lint, tests, and packaging
+- DevTools light/dark theme support via `chrome.devtools.panels.themeName`
+- Resizable sidebar column in the Decipher JZB panel
+- Paste hint when clipboard auto-paste is unavailable in DevTools
+- `matchesCapturedRequestSearch` helper and shared `MAX_CAPTURED_REQUESTS` constant
+- Tests for `decodeJzb`, zlib-wrapper fallback, `highlightJson` HTML escaping, and search matching
+
+### Changed
+
+- Panel UX: filter and Clear list in sidebar, Clear cURL control, full URL display in list
+- Paste cURL uses `execCommand` for clipboard access in DevTools panels
+- Decode errors and panel `postMessage` failures are handled separately in devtools
+
+### Fixed
+
+- Base64url padding for `jzb` parameters whose length mod 4 is 2
+- 200-request cap enforced consistently in devtools and panel on all capture paths
+- Filter hides selected item: detail view now syncs to first visible match
+- Port disconnect shows a connection-lost message instead of failing silently
+- Paste cURL decoding via `buildCapturedItem` with correct arguments
 
 ## [1.0.0] - 2026-09-17
 

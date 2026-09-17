@@ -1,3 +1,5 @@
+const MAX_CAPTURED_REQUESTS = 200;
+
 const JzbDecoder = (() => {
     function padBase64Url (jzb) {
         const remainder = jzb.length % 4;
@@ -197,6 +199,28 @@ const JzbDecoder = (() => {
         }
     }
 
+    function matchesCapturedRequestSearch (item, query) {
+        if (!query) {
+            return true;
+        }
+
+        const haystack = [
+            item.label,
+            item.method,
+            item.requestUrl,
+            item.error,
+            ...(item.summary || []).flatMap((summary) => [
+                summary.type,
+                summary.trackEventName,
+                summary.visitorId,
+                summary.accountId,
+                summary.url
+            ])
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return haystack.includes(query.toLowerCase());
+    }
+
     function buildCapturedItem ({ requestUrl, method, payload, jzb, id, capturedAt }) {
         const summary = summarizePayload(payload);
 
@@ -251,6 +275,7 @@ const JzbDecoder = (() => {
     }
 
     return {
+        MAX_CAPTURED_REQUESTS,
         base64UrlToBytes,
         decodeJzb,
         extractJzbFromUrl,
@@ -261,6 +286,7 @@ const JzbDecoder = (() => {
         formatTimestamp,
         buildRequestLabel,
         buildCapturedItem,
+        matchesCapturedRequestSearch,
         highlightJson
     };
 })();

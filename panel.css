@@ -115,6 +115,11 @@ textarea::placeholder {
   color: var(--danger);
 }
 
+.paste-hint {
+  margin-top: 8px;
+  color: var(--muted);
+}
+
 .hidden {
   display: none !important;
 }
