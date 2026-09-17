@@ -76,11 +76,10 @@ document.getElementById('clear-requests').addEventListener('click', () => {
 });
 
 pasteToggleEl.addEventListener('click', () => {
-    const wasHidden = pastePanelEl.classList.contains('hidden');
     const isHidden = pastePanelEl.classList.toggle('hidden');
     pasteToggleEl.setAttribute('aria-expanded', String(!isHidden));
 
-    if (!wasHidden || isHidden) {
+    if (isHidden) {
         return;
     }
 
@@ -178,24 +177,30 @@ function showConnectionLostMessage () {
     showPasteError('Connection lost. Close and reopen the Decipher JZB panel.');
 }
 
+function setElementMessage (element, message) {
+    element.textContent = message || '';
+
+    if (message) {
+        element.classList.remove('hidden');
+    } else {
+        element.classList.add('hidden');
+    }
+}
+
 function showPasteError (message) {
-    pasteErrorEl.textContent = message;
-    pasteErrorEl.classList.remove('hidden');
+    setElementMessage(pasteErrorEl, message);
 }
 
 function hidePasteError () {
-    pasteErrorEl.textContent = '';
-    pasteErrorEl.classList.add('hidden');
+    setElementMessage(pasteErrorEl, '');
 }
 
 function showPasteHint (message) {
-    pasteHintEl.textContent = message;
-    pasteHintEl.classList.remove('hidden');
+    setElementMessage(pasteHintEl, message);
 }
 
 function hidePasteHint () {
-    pasteHintEl.textContent = '';
-    pasteHintEl.classList.add('hidden');
+    setElementMessage(pasteHintEl, '');
 }
 
 function addRequest (item) {
@@ -229,60 +234,59 @@ function syncSelectionToFilter (filteredRequests) {
     selectedId = filteredRequests[0]?.id ?? null;
 }
 
+function shouldUpdateDetail (updateDetail, previousSelectedId) {
+    return updateDetail || selectedId !== previousSelectedId || selectedId !== renderedDetailId;
+}
+
+function createRequestItemButton (item) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `request-item${item.error ? ' error' : ''}${item.id === selectedId ? ' selected' : ''}`;
+    button.dataset.id = item.id;
+
+    const label = document.createElement('div');
+    label.className = 'request-label';
+    label.textContent = item.label;
+
+    const subtitle = document.createElement('div');
+    subtitle.className = 'request-subtitle';
+    subtitle.textContent = item.error
+        ? item.error
+        : `${item.method} · ${JzbDecoder.formatTimestamp(item.capturedAt, { timeOnly: true })} · ${item.requestUrl}`;
+
+    button.append(label, subtitle);
+    button.addEventListener('click', () => selectRequest(item.id));
+
+    return button;
+}
+
 function renderList ({ updateDetail = true } = {}) {
     const previousSelectedId = selectedId;
 
-    requestListEl.querySelectorAll('.request-item').forEach((node) => node.remove());
-    requestListEl.querySelectorAll('.filter-empty').forEach((node) => node.remove());
+    requestListEl.querySelectorAll('.request-item, .filter-empty').forEach((node) => node.remove());
 
     const filteredRequests = getFilteredRequests();
 
     if (!requests.size) {
         emptyStateEl.classList.remove('hidden');
-        if (updateDetail || selectedId !== renderedDetailId) {
-            renderDetail();
+    } else {
+        emptyStateEl.classList.add('hidden');
+
+        if (!filteredRequests.length) {
+            syncSelectionToFilter(filteredRequests);
+            const message = document.createElement('div');
+            message.className = 'filter-empty';
+            message.textContent = `No requests match "${searchQuery}".`;
+            requestListEl.appendChild(message);
+        } else {
+            syncSelectionToFilter(filteredRequests);
+            filteredRequests.forEach((item) => {
+                requestListEl.appendChild(createRequestItemButton(item));
+            });
         }
-        return;
     }
 
-    emptyStateEl.classList.add('hidden');
-
-    if (!filteredRequests.length) {
-        syncSelectionToFilter(filteredRequests);
-        const message = document.createElement('div');
-        message.className = 'filter-empty';
-        message.textContent = `No requests match "${searchQuery}".`;
-        requestListEl.appendChild(message);
-        if (updateDetail || selectedId !== previousSelectedId || selectedId !== renderedDetailId) {
-            renderDetail();
-        }
-        return;
-    }
-
-    syncSelectionToFilter(filteredRequests);
-
-    filteredRequests.forEach((item) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `request-item${item.error ? ' error' : ''}${item.id === selectedId ? ' selected' : ''}`;
-        button.dataset.id = item.id;
-
-        const label = document.createElement('div');
-        label.className = 'request-label';
-        label.textContent = item.label;
-
-        const subtitle = document.createElement('div');
-        subtitle.className = 'request-subtitle';
-        subtitle.textContent = item.error
-            ? item.error
-            : `${item.method} · ${JzbDecoder.formatTimestamp(item.capturedAt, { timeOnly: true })} · ${item.requestUrl}`;
-
-        button.append(label, subtitle);
-        button.addEventListener('click', () => selectRequest(item.id));
-        requestListEl.appendChild(button);
-    });
-
-    if (updateDetail || selectedId !== previousSelectedId || selectedId !== renderedDetailId) {
+    if (shouldUpdateDetail(updateDetail, previousSelectedId)) {
         renderDetail();
     }
 }
@@ -380,8 +384,12 @@ function hideCopyStatus () {
     }
 }
 
+function getLayoutEl () {
+    return document.querySelector('.layout');
+}
+
 function getSidebarWidth () {
-    const layout = document.querySelector('.layout');
+    const layout = getLayoutEl();
     const width = layout ? Number.parseInt(getComputedStyle(layout).getPropertyValue('--sidebar-width'), 10) : NaN;
 
     return Number.isFinite(width) ? width : DEFAULT_SIDEBAR_WIDTH;
@@ -392,8 +400,9 @@ function getMaxSidebarWidth () {
 }
 
 function setSidebarWidth (width) {
-    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(width, getMaxSidebarWidth()));
-    const layout = document.querySelector('.layout');
+    const maxWidth = getMaxSidebarWidth();
+    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(width, maxWidth));
+    const layout = getLayoutEl();
 
     if (!layout) {
         return clamped;
@@ -401,7 +410,7 @@ function setSidebarWidth (width) {
 
     layout.style.setProperty('--sidebar-width', `${clamped}px`);
     layoutResizerEl.setAttribute('aria-valuenow', String(clamped));
-    layoutResizerEl.setAttribute('aria-valuemax', String(getMaxSidebarWidth()));
+    layoutResizerEl.setAttribute('aria-valuemax', String(maxWidth));
 
     return clamped;
 }

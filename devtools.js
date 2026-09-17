@@ -17,14 +17,29 @@ function safePostMessage (port, message) {
     }
 }
 
-function trimCapturedRequests () {
-    JzbDecoder.trimCapturedRequestArray(capturedRequests);
-}
-
 function addCapturedItem (item) {
     capturedRequests.unshift(item);
-    trimCapturedRequests();
+    JzbDecoder.trimCapturedRequestArray(capturedRequests);
     safePostMessage(panelPort, { type: 'request', item });
+}
+
+async function buildItemFromJzb ({ requestUrl, method, jzb }) {
+    try {
+        const payload = await JzbDecoder.decodeJzb(jzb);
+
+        return JzbDecoder.buildCapturedItem({
+            requestUrl,
+            method,
+            payload,
+            jzb
+        });
+    } catch (error) {
+        return JzbDecoder.buildErrorCapturedItem({
+            requestUrl,
+            method,
+            error
+        });
+    }
 }
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -91,23 +106,11 @@ chrome.devtools.network.onRequestFinished.addListener(async (request) => {
 
     if (!jzb) return;
 
-    let item;
-
-    try {
-        const payload = await JzbDecoder.decodeJzb(jzb);
-        item = JzbDecoder.buildCapturedItem({
-            requestUrl,
-            method: request.request.method,
-            payload,
-            jzb
-        });
-    } catch (error) {
-        item = JzbDecoder.buildErrorCapturedItem({
-            requestUrl,
-            method: request.request.method,
-            error
-        });
-    }
+    const item = await buildItemFromJzb({
+        requestUrl,
+        method: request.request.method,
+        jzb
+    });
 
     addCapturedItem(item);
 });

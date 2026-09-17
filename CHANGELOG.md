@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-17
+
+### Changed
+
+- Simplified panel list rendering, paste UI helpers, and sidebar layout utilities
+- Consolidated network capture decode flow in `devtools.js` via `buildItemFromJzb`
+- Streamlined `highlightJson` and curl parameter parsing in `jzb.js`
+
 ## [1.1.1] - 2026-09-17
 
 ### Changed

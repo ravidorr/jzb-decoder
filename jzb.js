@@ -86,8 +86,7 @@ const JzbDecoder = (() => {
     function decodeJzbParam (value) {
         if (!value) return null;
 
-        const stripped = value.replace(/[\\'"`,]+$/g, '').replace(/^[\\'"`,]+/g, '');
-        const trimmed = unquoteCurlValue(stripped);
+        const trimmed = unquoteCurlValue(value.replace(/^[\\'"`,]+|[\\'"`,]+$/g, ''));
 
         try {
             return decodeURIComponent(trimmed);
@@ -108,8 +107,8 @@ const JzbDecoder = (() => {
         return null;
     }
 
-    function extractUrlsFromCurl (curlText, normalizedText) {
-        const normalized = normalizedText ?? normalizeCurlText(curlText);
+    function extractUrlsFromCurl (curlText) {
+        const normalized = normalizeCurlText(curlText);
         const urls = new Set();
 
         const patterns = [
@@ -142,7 +141,7 @@ const JzbDecoder = (() => {
 
         if (direct) return direct;
 
-        for (const url of extractUrlsFromCurl(curlText, normalized)) {
+        for (const url of extractUrlsFromCurl(normalized)) {
             const fromUrl = extractJzbFromUrl(url);
 
             if (fromUrl) return fromUrl;
@@ -305,9 +304,10 @@ const JzbDecoder = (() => {
 
     function highlightJson (payload) {
         const json = JSON.stringify(payload, null, 2);
+        const keyPattern = new RegExp(`^(\\s*)("(?:${HIGHLIGHT_JSON_KEY_PATTERN})")(\\s*:\\s*)(.*)$`);
 
         return json.split('\n').map((line) => {
-            const keyMatch = line.match(new RegExp(`^(\\s*)("(?:${HIGHLIGHT_JSON_KEY_PATTERN})")(\\s*:\\s*)(.*)$`));
+            const keyMatch = line.match(keyPattern);
 
             if (!keyMatch) {
                 return escapeHtml(line);
@@ -315,10 +315,6 @@ const JzbDecoder = (() => {
 
             const [ , indent, key, separator, value ] = keyMatch;
             const keyName = key.slice(1, -1);
-
-            if (!HIGHLIGHT_JSON_KEYS.has(keyName)) {
-                return escapeHtml(line);
-            }
 
             return `${escapeHtml(indent)}<span class="json-key">${escapeHtml(key)}</span>${escapeHtml(separator)}<span class="json-value json-value-${keyName}">${escapeHtml(value)}</span>`;
         }).join('\n');
