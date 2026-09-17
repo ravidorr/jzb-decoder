@@ -90,10 +90,10 @@ function addRequest (item) {
 
 function getFilteredRequests () {
     if (!searchQuery) {
-        return [...requests.values()];
+        return [ ...requests.values() ];
     }
 
-    return [...requests.values()].filter((item) => matchesSearch(item, searchQuery));
+    return [ ...requests.values() ].filter((item) => matchesSearch(item, searchQuery));
 }
 
 function matchesSearch (item, query) {

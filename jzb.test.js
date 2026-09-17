@@ -46,7 +46,7 @@ function decodeJzbNode (jzb) {
     const multilineCurl = [
         'curl \\',
         `  'https://example.com/beacon?jzb=${SAMPLE_JZB}&type=track' \\`,
-        "  -H 'accept: */*'"
+        '  -H \'accept: */*\''
     ].join('\n');
     assert.equal(extractJzbFromCurl(multilineCurl), SAMPLE_JZB);
 
@@ -54,7 +54,7 @@ function decodeJzbNode (jzb) {
     assert.equal(extractJzbFromCurl(jzbOnlyCurl), SAMPLE_JZB);
 
     assert.deepEqual(
-        extractUrlsFromCurl(`curl 'https://example.com/a' --url "https://example.com/b"`),
+        extractUrlsFromCurl('curl \'https://example.com/a\' --url "https://example.com/b"'),
         [ 'https://example.com/a', 'https://example.com/b' ]
     );
 

@@ -19,5 +19,25 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check version sync
+        run: npm run check-version
+
+      - name: Lint
+        run: npm run lint
+
       - name: Run tests
         run: npm test
+
+      - name: Build extension package
+        run: npm run package
+
+      - name: Verify package contents
+        run: |
+          test -f dist/jzb-decoder.zip
+          test -f dist/jzb-decoder/manifest.json
+          unzip -l dist/jzb-decoder.zip | grep -q 'manifest.json'
+          unzip -l dist/jzb-decoder.zip | grep -q 'icons/icon128.png'
+          unzip -l dist/jzb-decoder.zip | grep -q 'jzb.js'

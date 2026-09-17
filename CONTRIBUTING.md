@@ -6,10 +6,19 @@ Thanks for helping improve JZB Decoder.
 
 1. Fork and clone the repository.
 2. Load the extension unpacked from the repository root in `chrome://extensions`.
-3. Run tests before opening a pull request:
+3. Install git hooks once per clone:
 
 ```bash
+npm run install-hooks
+```
+
+4. Run checks before opening a pull request:
+
+```bash
+npm run check-version
+npm run lint
 npm test
+npm run package
 ```
 
 ## Making changes
@@ -19,6 +28,7 @@ npm test
 - Match the existing code style and file layout.
 - Update tests when changing decode logic, cURL parsing, or payload summarization.
 - Update `README.md` when user-facing behavior changes.
+- Run `npm run lint` before committing. It checks JavaScript, CSS, Markdown, and HTML.
 
 ## Screenshots
 
@@ -33,10 +43,16 @@ npm run redact-screenshot -- path/to/raw-capture.png docs/screenshots/output.png
 
 3. Review the redacted image before opening a pull request.
 
+## Versioning
+
+- Keep `manifest.json` and `package.json` versions identical.
+- Use `npm run version:patch|minor|major` to bump both files together.
+- Update `CHANGELOG.md` when preparing a release.
+
 ## Pull requests
 
 1. Describe the problem and the change.
-2. Confirm `npm test` passes.
+2. Confirm `npm run check-version`, `npm run lint`, `npm test`, and `npm run package` pass.
 3. Note any manual Chrome testing you performed.
 4. Keep pull requests focused and small when possible.
 

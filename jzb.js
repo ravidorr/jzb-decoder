@@ -1,5 +1,3 @@
-/* global self */
-
 const JzbDecoder = (() => {
     function base64UrlToBytes (jzb) {
         if (!jzb) {
@@ -119,7 +117,7 @@ const JzbDecoder = (() => {
             }
         });
 
-        return [...urls];
+        return [ ...urls ];
     }
 
     function extractJzbFromCurl (curlText) {

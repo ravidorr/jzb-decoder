@@ -14,8 +14,28 @@
   },
   "homepage": "https://github.com/ravidorr/jzb-decoder#readme",
   "scripts": {
+    "lint": "npm run lint:js && npm run lint:css && npm run lint:md && npm run lint:html",
+    "lint:js": "eslint .",
+    "lint:css": "stylelint \"**/*.css\"",
+    "lint:md": "markdownlint-cli2",
+    "lint:html": "html-validate panel.html devtools.html",
     "test": "node jzb.test.js",
+    "check-version": "node scripts/check-version-sync.js",
+    "version:patch": "bash scripts/bump-version.sh patch",
+    "version:minor": "bash scripts/bump-version.sh minor",
+    "version:major": "bash scripts/bump-version.sh major",
+    "install-hooks": "bash scripts/install-git-hooks.sh",
     "package": "bash scripts/package.sh",
     "redact-screenshot": "bash scripts/redact-screenshot.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "html-validate": "^11.0.0",
+    "markdownlint-cli2": "^0.23.2",
+    "stylelint": "^17.15.0",
+    "stylelint-config-standard": "^40.0.0"
   }
 }

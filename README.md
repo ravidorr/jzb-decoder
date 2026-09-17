@@ -1,11 +1,13 @@
 # JZB Decoder
 
-Chrome DevTools extension that watches network traffic for requests containing a `jzb=` query parameter, decodes the zlib-compressed JSON payload, and shows it in a **Decipher JZB** panel.
+Chrome DevTools extension that watches network traffic for requests containing a `jzb=` query parameter,
+decodes the zlib-compressed JSON payload, and shows it in a **Decipher JZB** panel.
 
-- Repository: https://github.com/ravidorr/jzb-decoder
-- Privacy policy: https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md
+- Repository: [github.com/ravidorr/jzb-decoder](https://github.com/ravidorr/jzb-decoder)
+- Privacy policy: [github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md](https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 - License: [MIT](LICENSE)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ## What is `jzb`?
 
@@ -15,7 +17,9 @@ Chrome DevTools extension that watches network traffic for requests containing a
 2. zlib-compressed JSON
 3. Often an array of analytics or telemetry events
 
-The format is common in analytics beacon URLs (for example Pendo `ptm.gif` requests), but this extension is **format-specific, not product-specific**. It does not depend on any vendor SDK, API, or backend.
+The format is common in analytics beacon URLs (for example Pendo `ptm.gif` requests),
+but this extension is **format-specific, not product-specific**.
+It does not depend on any vendor SDK, API, or backend.
 
 ## Load in Chrome
 
@@ -40,8 +44,25 @@ The format is common in analytics beacon URLs (for example Pendo `ptm.gif` reque
 
 ```bash
 npm test
+npm run lint          # js, css, md, html
+npm run check-version
 npm run package
+npm run install-hooks
 ```
+
+Install git hooks once per clone so commits verify `manifest.json` and `package.json` versions stay in sync.
+
+### Version bumps
+
+`manifest.json` is the canonical extension version. Bump both files together:
+
+```bash
+npm run version:patch
+# or: npm run version:minor
+# or: npm run version:major
+```
+
+Update `CHANGELOG.md`, then commit, tag (`v1.0.1`), package, and publish.
 
 `npm run package` writes:
 
@@ -50,7 +71,11 @@ npm run package
 
 ## Privacy
 
-Decoding happens locally in the browser. The extension does not request host permissions and does not send captured payloads anywhere else. See [PRIVACY.md](PRIVACY.md) or the hosted copy at https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md for the store listing privacy policy URL.
+Decoding happens locally in the browser.
+The extension does not request host permissions and does not send captured payloads anywhere else.
+See [PRIVACY.md](PRIVACY.md) or the
+[hosted copy on GitHub](https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md)
+for the store listing privacy policy URL.
 
 Treat decoded output as sensitive because payloads may include user or session identifiers.
 
@@ -60,7 +85,7 @@ Treat decoded output as sensitive because payloads may include user or session i
 
 - Icons are included at `icons/icon16.png`, `icons/icon48.png`, and `icons/icon128.png`
 - Add screenshots using the guide in [docs/screenshots/README.md](docs/screenshots/README.md)
-- Use the hosted privacy policy URL: https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md
+- Use the hosted privacy policy URL: [github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md](https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md)
 
 ### 2. Build the upload zip
 
@@ -93,7 +118,7 @@ Expected runtime files in `dist/jzb-decoder/` and at the zip root:
    - Name: `JZB Decoder`
    - Summary: decode `jzb` payloads from DevTools network traffic
    - Category: Developer Tools
-   - Privacy policy URL: https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md
+   - Privacy policy URL: [github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md](https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md)
 5. Upload screenshots from `docs/screenshots/`
 6. Submit for review
 
@@ -101,11 +126,12 @@ Expected runtime files in `dist/jzb-decoder/` and at the zip root:
 
 Before each release:
 
-1. Bump `version` in `manifest.json`
-2. Run `npm test`
-3. Run `npm run package`
-4. Upload the new zip to the existing store item
+1. Run `npm run version:patch`, `npm run version:minor`, or `npm run version:major`
+2. Update `CHANGELOG.md`
+3. Run `npm test` and `npm run package`
+4. Commit, tag the release (`v1.0.1`), and upload the new zip to the store item
 
 ## Notes
 
-Chrome does not allow extensions to add items to the native Network right-click menu. The DevTools panel is the supported integration point.
+Chrome does not allow extensions to add items to the native Network right-click menu.
+The DevTools panel is the supported integration point.
