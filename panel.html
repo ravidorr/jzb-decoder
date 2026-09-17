@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Decipher JZB</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="toolbar-title">Decipher JZB</div>
+      <div class="toolbar-search">
+        <input
+          id="search"
+          type="search"
+          placeholder="Filter requests..."
+          aria-label="Filter captured requests"
+        />
+      </div>
+      <div class="toolbar-actions">
+        <button id="paste-toggle" type="button">Paste cURL</button>
+        <button id="clear" type="button">Clear</button>
+      </div>
+    </header>
+
+    <section id="paste-panel" class="paste-panel hidden">
+      <textarea id="curl-input" placeholder="Paste a copied curl command here..."></textarea>
+      <div class="paste-actions">
+        <button id="decode-curl" type="button">Decode</button>
+      </div>
+      <div id="paste-error" class="error hidden"></div>
+    </section>
+
+    <main class="layout">
+      <aside class="request-list" id="request-list">
+        <div class="empty-state" id="empty-state">
+          Listening for network requests with <code>jzb=</code> in the URL.
+        </div>
+      </aside>
+      <section class="detail" id="detail">
+        <div class="detail-empty" id="detail-empty">
+          Select a captured request to view the decoded payload.
+        </div>
+        <div class="detail-content hidden" id="detail-content">
+          <div class="detail-actions">
+            <button id="copy-json" type="button">Copy JSON</button>
+            <span id="copy-status" class="copy-status hidden" aria-live="polite">Copied</span>
+          </div>
+          <div class="detail-meta" id="detail-meta"></div>
+          <pre id="detail-json"></pre>
+        </div>
+      </section>
+    </main>
+
+    <script src="jzb.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>
