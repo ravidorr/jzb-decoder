@@ -38,7 +38,10 @@ npm test
 npm run package
 ```
 
-`npm run package` writes `dist/jzb-decoder.zip` for Chrome Web Store upload.
+`npm run package` writes:
+
+- `dist/jzb-decoder/` unpacked extension files for inspection
+- `dist/jzb-decoder.zip` for Chrome Web Store upload
 
 ## Privacy
 
@@ -61,13 +64,14 @@ npm test
 npm run package
 ```
 
-Verify the zip contains extension runtime files only:
+Verify the packaged output:
 
 ```bash
+ls dist/jzb-decoder
 unzip -l dist/jzb-decoder.zip
 ```
 
-Expected runtime files:
+Expected runtime files in `dist/jzb-decoder/` and at the zip root:
 
 - `manifest.json`
 - `devtools.html`, `devtools.js`

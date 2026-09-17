@@ -5,6 +5,7 @@
   "description": "Chrome DevTools extension for decoding jzb URL payloads.",
   "scripts": {
     "test": "node jzb.test.js",
-    "package": "bash scripts/package.sh"
+    "package": "bash scripts/package.sh",
+    "redact-screenshot": "bash scripts/redact-screenshot.sh"
   }
 }
