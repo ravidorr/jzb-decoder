@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-09-21
+
+### Added
+
+- README store install links for Chrome, Firefox, and Edge
+- README install-from-source instructions for loading the extension from the repository
+
 ## [1.2.1] - 2026-09-17
 
 ### Fixed

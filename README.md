@@ -1,9 +1,12 @@
 # JZB Decoder
 
-DevTools extension for Chrome, Edge, and Firefox that watches network traffic for requests containing a `jzb=` query parameter,
+DevTools extension for Chrome, Firefox, and Edge that watches network traffic for requests containing a `jzb=` query parameter,
 decodes the zlib-compressed JSON payload, and shows it in a **Decipher JZB** panel.
 
 - Repository: [github.com/ravidorr/jzb-decoder](https://github.com/ravidorr/jzb-decoder)
+- Chrome: [Chrome Web Store](https://chromewebstore.google.com/detail/jzb-decoder/addldjliomlnknfmpaiiilbodalonlni)
+- Firefox: [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/jzb-decoder/)
+- Edge: [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/jzb-decoder/ohnhdckjblabclpemdpnccffjgkdibid)
 - Privacy policy: [github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md](https://github.com/ravidorr/jzb-decoder/blob/main/PRIVACY.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 - License: [MIT](LICENSE)
@@ -23,33 +26,74 @@ It does not depend on any vendor SDK, API, or backend.
 
 ## Install
 
-### Chrome
+Install from your browser's extension store:
+
+- Chrome: [JZB Decoder on Chrome Web Store](https://chromewebstore.google.com/detail/jzb-decoder/addldjliomlnknfmpaiiilbodalonlni)
+- Firefox: [JZB Decoder on Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/jzb-decoder/)
+- Edge: [JZB Decoder on Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/jzb-decoder/ohnhdckjblabclpemdpnccffjgkdibid)
+
+After installing, open DevTools on any page and select the **Decipher JZB** panel from the DevTools tab bar.
+
+On Firefox, open the **Network** tab at least once per DevTools session before auto-capture starts.
+
+### Install from source
+
+The extension is plain JavaScript with no build step. After you have the code, load it directly in your browser.
+
+#### 1. Get the code
+
+```bash
+git clone https://github.com/ravidorr/jzb-decoder.git
+cd jzb-decoder
+```
+
+You can also download a release or branch as a ZIP and extract it.
+
+Optional checks before loading:
+
+```bash
+npm test
+npm run package
+```
+
+`npm run package` writes `dist/jzb-decoder/` (unpacked) and `dist/jzb-decoder.zip`.
+You can load either the repository root or `dist/jzb-decoder/`; both contain the same runtime files.
+
+#### 2. Load in your browser
+
+#### Chrome
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
 3. Click **Load unpacked**
-4. Select this repository root
+4. Select the repository root (or `dist/jzb-decoder/` if you ran `npm run package`)
 5. Open DevTools on any page
 6. Open the **Decipher JZB** panel from the DevTools tab bar
 
-### Edge
-
-1. Open `edge://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select this repository root
-5. Open DevTools on any page
-6. Open the **Decipher JZB** panel from the DevTools tab bar
-
-### Firefox
+#### Firefox
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on**
-3. Select `manifest.json` from this repository root
+3. Select `manifest.json` from the repository root (or from `dist/jzb-decoder/`)
 4. Open DevTools on any page
 5. Open the **Decipher JZB** panel from the DevTools tab bar
 
 On Firefox, open the **Network** tab at least once per DevTools session before auto-capture starts.
+
+Temporary add-ons in Firefox are removed when the browser closes.
+Reload from `about:debugging` after restarting Firefox or pulling code changes.
+
+#### Edge
+
+1. Open `edge://extensions`
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select the repository root (or `dist/jzb-decoder/` if you ran `npm run package`)
+5. Open DevTools on any page
+6. Open the **Decipher JZB** panel from the DevTools tab bar
+
+Chrome and Edge keep the unpacked extension loaded across restarts.
+Click **Reload** on `chrome://extensions` or `edge://extensions` after pulling updates.
 
 ## Features
 
