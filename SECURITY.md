@@ -8,6 +8,7 @@ Security fixes are provided for the latest release only.
 | ------- | --------- |
 | 1.2.2 | ✓ |
 | Earlier releases | ✘ |
+
 ## Reporting a Vulnerability
 
 Do not report suspected vulnerabilities in public issues, discussions, or pull

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   validateSecurityPolicyFiles,
@@ -10,6 +12,9 @@ import {
 } from "./validate-security-policy-version.mjs";
 
 const supportedStatus = String.fromCodePoint(0x2713);
+const validatorPath = fileURLToPath(
+  new URL("./validate-security-policy-version.mjs", import.meta.url),
+);
 const policyFor = (version) => `## Supported Versions
 
 | Version | Supported |
@@ -79,6 +84,27 @@ test("reads package and policy files", () => {
       validateSecurityPolicyFiles(packageJsonPath, policyPath),
       { valid: true, version: "1.2.3" },
     );
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("runs successfully as a command-line program", () => {
+  const directory = mkdtempSync(join(tmpdir(), "security-policy-"));
+
+  try {
+    const packageJsonPath = join(directory, "package.json");
+    const policyPath = join(directory, "SECURITY.md");
+    writeFileSync(packageJsonPath, '{"version":"1.2.3"}');
+    writeFileSync(policyPath, policyFor("1.2.3"));
+
+    const output = execFileSync(
+      process.execPath,
+      [validatorPath, packageJsonPath, policyPath],
+      { encoding: "utf8" },
+    );
+
+    assert.equal(output, "SECURITY.md supports package version 1.2.3.\n");
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }

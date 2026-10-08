@@ -31,6 +31,9 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      - name: Test security policy validation
+        run: npm run test:security-policy
+
       - name: Build extension package
         run: npm run package
 
