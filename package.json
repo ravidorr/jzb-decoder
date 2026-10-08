@@ -31,7 +31,9 @@
     "version:major": "bash scripts/bump-version.sh major",
     "install-hooks": "bash scripts/install-git-hooks.sh",
     "package": "bash scripts/package.sh",
-    "redact-screenshot": "bash scripts/redact-screenshot.sh"
+    "redact-screenshot": "bash scripts/redact-screenshot.sh",
+    "validate:security-policy": "node scripts/validate-security-policy-version.mjs",
+    "test:security-policy": "node --test scripts/validate-security-policy-version.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

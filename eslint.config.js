@@ -76,5 +76,18 @@ module.exports = [
         rules: {
             ...stylisticRules
         }
+    },
+    {
+        files: [
+            'scripts/**/*.mjs',
+            'test/**/*.mjs'
+        ],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'module',
+            globals: {
+                ...globals.node
+            }
+        }
     }
 ];
