@@ -286,11 +286,33 @@ async function runPanelTests () {
         assert.match(dom.elements[ 'paste-hint' ].textContent, /Clipboard paste unavailable/);
     });
 
+    localThis.test('applies the active DevTools theme on initialization', async () => {
+        resetExtensionModules();
+        const { dom } = loadPanel({ themeName: 'dark' });
+
+        assert.equal(dom.document.documentElement.dataset.theme, 'dark');
+    });
+
+    localThis.test('uses the default theme when DevTools does not provide one', async () => {
+        resetExtensionModules();
+        const { dom } = loadPanel({ themeName: null });
+
+        assert.equal(dom.document.documentElement.dataset.theme, 'default');
+    });
+
     localThis.test('applies devtools theme changes', async () => {
         resetExtensionModules();
         const { dom, triggerThemeChange } = loadPanel();
 
         triggerThemeChange('dark');
+        assert.equal(dom.document.documentElement.dataset.theme, 'dark');
+    });
+
+    localThis.test('applies object-shaped DevTools theme changes', async () => {
+        resetExtensionModules();
+        const { dom, triggerThemeChange } = loadPanel();
+
+        triggerThemeChange({ themeName: 'dark' });
         assert.equal(dom.document.documentElement.dataset.theme, 'dark');
     });
 

@@ -28,7 +28,7 @@
     "lint:css": "stylelint --allow-empty-input --max-warnings=0 \"**/*.css\"",
     "lint:md": "markdownlint-cli2",
     "lint:html": "node scripts/lint-html.mjs",
-    "typecheck": "tsc --allowJs --checkJs false --noEmit --target ES2022 --lib ES2022,DOM jzb.js panel.js devtools.js",
+    "typecheck": "tsc --project tsconfig.json",
     "test": "node scripts/run-tests.js && npm run test:release",
     "test:coverage": "node scripts/check-coverage.js && npm run test:release",
     "test:release": "vitest run --config vitest.config.mjs",

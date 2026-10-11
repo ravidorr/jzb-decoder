@@ -20,7 +20,8 @@ export default tseslint.config(
       'coverage/**',
       'dist/**',
       'node_modules/**',
-      '.lighthouseci/**'
+      '.lighthouseci/**',
+      'typecheck-globals.d.ts'
     ]
   },
   js.configs.recommended,

@@ -2,7 +2,11 @@ const port = chrome.runtime.connect({ name: 'jzb-panel' });
 let portConnected = true;
 
 function normalizeThemeName (theme) {
-    if (theme === 'dark') {
+    const raw = typeof theme === 'string'
+        ? theme
+        : theme?.themeName ?? chrome.devtools.panels.themeName ?? 'default';
+
+    if (raw === 'dark') {
         return 'dark';
     }
 
@@ -27,22 +31,22 @@ function registerThemeChangeHandler () {
 applyDevToolsTheme();
 registerThemeChangeHandler();
 
-const requestListEl = document.getElementById('request-list');
-const emptyStateEl = document.getElementById('empty-state');
-const detailEmptyEl = document.getElementById('detail-empty');
-const detailContentEl = document.getElementById('detail-content');
-const detailMetaEl = document.getElementById('detail-meta');
-const detailJsonEl = document.getElementById('detail-json');
-const pastePanelEl = document.getElementById('paste-panel');
-const pasteToggleEl = document.getElementById('paste-toggle');
-const pasteErrorEl = document.getElementById('paste-error');
-const pasteHintEl = document.getElementById('paste-hint');
-const curlInputEl = document.getElementById('curl-input');
-const searchInputEl = document.getElementById('search');
-const copyJsonButtonEl = document.getElementById('copy-json');
-const copyStatusEl = document.getElementById('copy-status');
-const layoutResizerEl = document.getElementById('layout-resizer');
-const decodeCurlButtonEl = document.getElementById('decode-curl');
+const requestListEl = /** @type {HTMLElement} */ (document.getElementById('request-list'));
+const emptyStateEl = /** @type {HTMLElement} */ (document.getElementById('empty-state'));
+const detailEmptyEl = /** @type {HTMLElement} */ (document.getElementById('detail-empty'));
+const detailContentEl = /** @type {HTMLElement} */ (document.getElementById('detail-content'));
+const detailMetaEl = /** @type {HTMLElement} */ (document.getElementById('detail-meta'));
+const detailJsonEl = /** @type {HTMLElement} */ (document.getElementById('detail-json'));
+const pastePanelEl = /** @type {HTMLElement} */ (document.getElementById('paste-panel'));
+const pasteToggleEl = /** @type {HTMLButtonElement} */ (document.getElementById('paste-toggle'));
+const pasteErrorEl = /** @type {HTMLElement} */ (document.getElementById('paste-error'));
+const pasteHintEl = /** @type {HTMLElement} */ (document.getElementById('paste-hint'));
+const curlInputEl = /** @type {HTMLTextAreaElement} */ (document.getElementById('curl-input'));
+const searchInputEl = /** @type {HTMLInputElement} */ (document.getElementById('search'));
+const copyJsonButtonEl = /** @type {HTMLButtonElement} */ (document.getElementById('copy-json'));
+const copyStatusEl = /** @type {HTMLElement} */ (document.getElementById('copy-status'));
+const layoutResizerEl = /** @type {HTMLElement} */ (document.getElementById('layout-resizer'));
+const decodeCurlButtonEl = /** @type {HTMLButtonElement} */ (document.getElementById('decode-curl'));
 
 const SIDEBAR_WIDTH_KEY = 'jzb-decoder-sidebar-width';
 const MIN_SIDEBAR_WIDTH = 200;
@@ -461,8 +465,11 @@ function hideCopyStatus () {
     }
 }
 
+/**
+ * @returns {HTMLElement | null}
+ */
 function getLayoutEl () {
-    return document.querySelector('.layout');
+    return /** @type {HTMLElement | null} */ (document.querySelector('.layout'));
 }
 
 function getSidebarWidth () {
