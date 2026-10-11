@@ -11,6 +11,9 @@ decodes the zlib-compressed JSON payload, and shows it in a **Decipher JZB** pan
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 - License: [MIT](LICENSE)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Security: [SECURITY.md](SECURITY.md)
+- Support: [SUPPORT.md](SUPPORT.md)
+- Design system: [design-system/README.md](design-system/README.md)
 
 ## What is `jzb`?
 
@@ -45,6 +48,8 @@ The extension is plain JavaScript with no build step. After you have the code, l
 ```bash
 git clone https://github.com/ravidorr/jzb-decoder.git
 cd jzb-decoder
+nvm install && nvm use
+npm ci
 ```
 
 You can also download a release or branch as a ZIP and extract it.
@@ -53,6 +58,7 @@ Optional checks before loading:
 
 ```bash
 npm test
+npm run typecheck
 npm run package
 ```
 
@@ -110,6 +116,7 @@ Click **Reload** on `chrome://extensions` or `edge://extensions` after pulling u
 ```bash
 npm test
 npm run lint          # js, css, md, html
+npm run typecheck
 npm run check-version
 npm run package
 npm run install-hooks

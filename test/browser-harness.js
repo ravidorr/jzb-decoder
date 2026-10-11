@@ -517,7 +517,7 @@ function loadIntegration ({ execCommandImpl, localStorageValues, themeApi, throw
     };
 }
 
-function loadPanel ({ execCommandImpl, localStorageValues, themeApi } = {}) {
+function loadPanel ({ execCommandImpl, localStorageValues, themeApi, throwOnPost = false } = {}) {
     const harness = createChromeMock({ themeApi });
     const dom = createDom({ execCommandImpl });
     const panelPort = createMockPort('jzb-panel');
@@ -530,6 +530,10 @@ function loadPanel ({ execCommandImpl, localStorageValues, themeApi } = {}) {
     }
 
     panelPort.postMessage = (message) => {
+        if (throwOnPost) {
+            throw new Error('postMessage failed');
+        }
+
         postedToDevtools.push(message);
     };
 

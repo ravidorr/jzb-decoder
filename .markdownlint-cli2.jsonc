@@ -3,8 +3,12 @@
     "**/*.md"
   ],
   "ignores": [
-    "node_modules",
-    "dist"
+    ".claude/**",
+    "node_modules/**",
+    "dist/**",
+    "CHANGELOG.md",
+    ".github/ISSUE_TEMPLATE/**",
+    ".github/PULL_REQUEST_TEMPLATE.md"
   ],
   "config": ".markdownlint.json"
 }

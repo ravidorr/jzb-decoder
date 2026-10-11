@@ -1,14 +1,38 @@
 {
-  "extends": "stylelint-config-standard",
+  "extends": [
+    "stylelint-config-standard"
+  ],
   "ignoreFiles": [
+    ".claude/**",
+    "coverage/**",
     "dist/**",
-    "node_modules/**"
+    "node_modules/**",
+    ".lighthouseci/**"
   ],
   "rules": {
+    "color-no-invalid-hex": true,
+    "declaration-no-important": true,
+    "selector-max-id": 0,
+    "max-nesting-depth": 3,
+    "declaration-property-value-disallowed-list": {
+      "/^(color|background(-color)?|border(-color)?|fill|stroke)$/": [
+        "/^#[0-9a-fA-F]{3,8}$/"
+      ]
+    },
     "color-hex-length": null,
     "custom-property-empty-line-before": null,
     "declaration-property-value-keyword-no-deprecated": null,
     "selector-class-pattern": null,
     "value-keyword-case": null
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "design-system/tokens.css"
+      ],
+      "rules": {
+        "declaration-property-value-disallowed-list": null
+      }
+    }
+  ]
 }

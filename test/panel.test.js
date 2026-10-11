@@ -81,6 +81,17 @@ async function runPanelTests () {
         assert.equal(dom.elements[ 'decode-curl' ].disabled, true);
     });
 
+    localThis.test('does not mark a decode as in flight when posting fails', async () => {
+        resetExtensionModules();
+        const { dom, postedToDevtools } = loadPanel({ throwOnPost: true });
+
+        dom.elements[ 'curl-input' ].value = buildSampleCurl();
+        dom.elements[ 'decode-curl' ].click();
+
+        assert.equal(postedToDevtools.length, 0);
+        assert.equal(dom.elements[ 'decode-curl' ].disabled, false);
+    });
+
     localThis.test('ignores duplicate decode clicks while a decode is in flight', async () => {
         resetExtensionModules();
         const { dom, postedToDevtools } = loadPanel();
@@ -201,10 +212,22 @@ async function runPanelTests () {
             shiftKey: false,
             preventDefault () {}
         });
+        dom.elements[ 'layout-resizer' ].dispatchEvent({
+            type: 'keydown',
+            key: 'ArrowLeft',
+            shiftKey: true,
+            preventDefault () {}
+        });
+        dom.elements[ 'layout-resizer' ].dispatchEvent({
+            type: 'keydown',
+            key: 'Escape',
+            shiftKey: false,
+            preventDefault () {}
+        });
 
         global.window.dispatchEvent('resize');
 
-        assert.equal(dom.layoutEl.style.getPropertyValue('--sidebar-width'), '336px');
+        assert.equal(dom.layoutEl.style.getPropertyValue('--sidebar-width'), '296px');
     });
 
     localThis.test('closes the paste panel without focusing the curl input', async () => {
@@ -242,6 +265,19 @@ async function runPanelTests () {
         const { dom } = loadPanel({
             execCommandImpl () {
                 return false;
+            }
+        });
+
+        dom.elements[ 'paste-toggle' ].click();
+
+        assert.match(dom.elements[ 'paste-hint' ].textContent, /Clipboard paste unavailable/);
+    });
+
+    localThis.test('shows paste hint when clipboard paste does not add text', async () => {
+        resetExtensionModules();
+        const { dom } = loadPanel({
+            execCommandImpl (command) {
+                return command === 'paste';
             }
         });
 
@@ -316,6 +352,7 @@ async function runPanelTests () {
         await panelPort.send({ type: 'init', requests: [ firstItem, secondItem ] });
 
         const buttons = dom.elements[ 'request-list' ].querySelectorAll('.request-item');
+        buttons[ 0 ].click();
         buttons[ 1 ].click();
         assert.match(dom.elements[ 'detail-json' ].innerHTML, /track/);
 
@@ -425,7 +462,7 @@ async function runPanelTests () {
         };
 
         await panelPort.send({ type: 'init', requests: [ firstItem, secondItem ] });
-        dom.elements[ 'request-list' ].querySelector('.request-item').click();
+        dom.elements[ 'request-list' ].querySelector('.request-item[data-id="panel-test-item"]').click();
         dom.elements.search.value = 'Second item';
         dom.elements.search.dispatchEvent({ type: 'input' });
 

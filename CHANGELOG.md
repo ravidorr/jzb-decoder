@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-10-11
+
+### Changed
+
+- Added the repository baseline for Node, quality gates, GitHub automation, and contributor documentation.
+
 ## [1.2.2] - 2026-09-21
 
 ### Added

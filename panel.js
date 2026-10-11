@@ -2,11 +2,7 @@ const port = chrome.runtime.connect({ name: 'jzb-panel' });
 let portConnected = true;
 
 function normalizeThemeName (theme) {
-    const raw = typeof theme === 'string'
-        ? theme
-        : theme?.themeName ?? chrome.devtools.panels.themeName ?? 'default';
-
-    if (raw === 'dark') {
+    if (theme === 'dark') {
         return 'dark';
     }
 
@@ -297,7 +293,11 @@ function syncSelectionToFilter (filteredRequests) {
         return;
     }
 
-    selectedId = filteredRequests[0]?.id ?? null;
+    selectedId = null;
+
+    if (filteredRequests.length > 0) {
+        selectedId = filteredRequests[0].id;
+    }
 }
 
 function shouldUpdateDetail (updateDetail, previousSelectedId) {
@@ -374,7 +374,7 @@ function selectRequest (id) {
     const nextButton = requestListEl.querySelector(`.request-item[data-id="${id}"]`);
 
     previousButton?.classList.remove('selected');
-    nextButton?.classList.add('selected');
+    nextButton.classList.add('selected');
     selectedId = id;
     renderDetail();
 }
@@ -417,8 +417,13 @@ function renderDetail () {
         labelEl.textContent = label;
 
         const valueEl = document.createElement('div');
-        valueEl.className = `meta-value${HIGHLIGHTED_META_LABELS.has(label) ? ' meta-value-highlight' : ''}`;
-        valueEl.textContent = value ?? '—';
+        valueEl.className = 'meta-value';
+
+        if (HIGHLIGHTED_META_LABELS.has(label)) {
+            valueEl.classList.add('meta-value-highlight');
+        }
+
+        valueEl.textContent = value;
 
         row.append(labelEl, valueEl);
         detailMetaEl.appendChild(row);
@@ -524,15 +529,17 @@ function initLayoutResizer () {
     layoutResizerEl.addEventListener('keydown', (event) => {
         let nextWidth = getSidebarWidth();
 
-        if (event.key === 'ArrowLeft') {
-            nextWidth -= event.shiftKey ? 40 : 16;
-        } else if (event.key === 'ArrowRight') {
-            nextWidth += event.shiftKey ? 40 : 16;
-        } else {
+        const direction = {
+            ArrowLeft: -1,
+            ArrowRight: 1
+        }[ event.key ];
+
+        if (!direction) {
             return;
         }
 
         event.preventDefault();
+        nextWidth += direction * (event.shiftKey ? 40 : 16);
         setSidebarWidth(nextWidth);
         localStorage.setItem(SIDEBAR_WIDTH_KEY, String(getSidebarWidth()));
     });

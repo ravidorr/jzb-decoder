@@ -115,6 +115,10 @@ async function runJzbTests () {
             extractUrlsFromCurl('curl \'https://example.com/a\' --url "https://example.com/b"'),
             [ 'https://example.com/a', 'https://example.com/b' ]
         );
+        assert.deepEqual(
+            extractUrlsFromCurl('curl --url https://example.com/c'),
+            [ 'https://example.com/c' ]
+        );
 
         assert.equal(
             normalizeCurlText('curl \\\n  "https://example.com"'),
@@ -197,6 +201,7 @@ async function runJzbTests () {
         );
         assert.equal(buildRequestLabel([ { type: 'load' } ], url), 'load');
         assert.equal(buildRequestLabel([], 'not-a-url'), 'not-a-url');
+        assert.equal(buildRequestLabel([], 'https://example.com/'), 'https://example.com/');
         assert.equal(
             buildRequestLabel(
                 summarizePayload(await decodeJzb(GUIDE_JZB)),
@@ -242,6 +247,16 @@ async function runJzbTests () {
         assert.equal(matchesCapturedRequestSearch(searchItem, 'ravidor@pendo.io'), true);
         assert.equal(matchesCapturedRequestSearch(searchItem, 'missing-value'), false);
         assert.equal(matchesCapturedRequestSearch(searchItem, 'OBJECT ANALYTICS'), true);
+        assert.equal(
+            matchesCapturedRequestSearch(
+                {
+                    ...searchItem,
+                    summary: null
+                },
+                'example'
+            ),
+            true
+        );
     });
 
     localThis.test('formatTimestamp and formatError handle edge cases', () => {
