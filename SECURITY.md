@@ -1,13 +1,27 @@
 # Security Policy
 
-## Supported versions
+## Supported Versions
+
+Security fixes are provided for the latest release only.
 
 | Version | Supported |
 | --- | --- |
 | Latest release | Yes |
-| Older | No |
+| Earlier releases | No |
 
-## Reporting a vulnerability
+## Reporting a Vulnerability
 
-Do not open a public issue. Report vulnerabilities privately through GitHub private vulnerability reporting
-(Security tab, then Report a vulnerability). Expect an acknowledgement within 3 business days.
+Do not report suspected vulnerabilities in public issues, discussions, or pull requests.
+
+Instead, use GitHub's private vulnerability reporting form from the
+[repository Security tab](https://github.com/ravidorr/jzb-decoder/security) and select **Report a vulnerability**.
+
+Include:
+
+- A description of the vulnerability and the affected version or component.
+- Steps to reproduce it, including a proof of concept when available.
+- The potential impact and any suggested mitigation.
+
+We will acknowledge receipt within five business days and provide progress updates at least weekly while we
+investigate. If we accept the report, we will coordinate a fix and disclosure with you. If we decline it, we will
+explain our reasoning.

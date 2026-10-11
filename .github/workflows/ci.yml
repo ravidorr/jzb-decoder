@@ -48,6 +48,8 @@ jobs:
         with:
           name: coverage
           path: coverage
+      - name: Test security policy validation
+        run: npm run test:security-policy
       - name: Build extension package
         run: npm run package
       - name: Verify package contents
