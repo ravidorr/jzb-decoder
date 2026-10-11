@@ -70,7 +70,11 @@ export function validateTaggedRelease({ tagName, packageVersion, changelog, rele
     throw new Error(`tag ${tagVersion} does not match package.json version ${packageVersion}`);
   }
 
-  validateRelease(semver.prerelease(packageVersion) ? packageVersion : '0.0.0', packageVersion, changelog);
+  if (!extractChangelogNotes(changelog, packageVersion).trim()) {
+    throw new Error(
+      `CHANGELOG.md must contain a non-empty section for ${packageVersion}`
+    );
+  }
 
   if (!releaseNotes.trim()) {
     throw new Error('release notes must not be empty');

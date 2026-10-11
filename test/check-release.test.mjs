@@ -79,4 +79,26 @@ describe('check-release', () => {
       'release notes must not be empty'
     );
   });
+
+  it('validates a prerelease and rejects a mismatched tag', () => {
+    const localThis = {
+      prerelease: {
+        tagName: 'v1.2.4-rc.1',
+        packageVersion: '1.2.4-rc.1',
+        changelog: '## [1.2.4-rc.1] - 2026-10-11\n\n- Release candidate.\n',
+        releaseNotes: '- Release candidate.\n'
+      },
+      mismatchedTag: {
+        tagName: 'v1.2.5',
+        packageVersion: '1.2.4',
+        changelog: '## [1.2.4] - 2026-10-11\n\n- Release.\n',
+        releaseNotes: '- Release.\n'
+      }
+    };
+
+    expect(() => validateTaggedRelease(localThis.prerelease)).not.toThrow();
+    expect(() => validateTaggedRelease(localThis.mismatchedTag)).toThrow(
+      'tag 1.2.5 does not match package.json version 1.2.4'
+    );
+  });
 });
