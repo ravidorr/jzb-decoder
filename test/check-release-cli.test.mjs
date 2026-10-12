@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -10,7 +9,7 @@ const scriptPath = join(testDirectory, '..', 'scripts', 'check-release.mjs');
 
 function withFixture(run) {
   const localThis = {
-    root: mkdtempSync(join(tmpdir(), 'check-release-'))
+    root: mkdtempSync('/tmp/check-release-')
   };
 
   try {
@@ -24,15 +23,6 @@ function writeFixture(root, releaseNotes) {
   writeFileSync(root + '/package.json', '{ "version": "1.2.3" }\n');
   writeFileSync(root + '/CHANGELOG.md', '## [1.2.3] - 2026-10-11\n\n- Baseline.\n');
   writeFileSync(root + '/release-notes.md', releaseNotes);
-}
-
-function runGit(root, args) {
-  execFileSync('git', args, { cwd: root });
-}
-
-function commitFixture(root, message) {
-  runGit(root, ['add', '.']);
-  runGit(root, ['commit', '--quiet', '-m', message]);
 }
 
 describe('check-release CLI', () => {
@@ -73,36 +63,38 @@ describe('check-release CLI', () => {
     const localThis = { result: undefined };
 
     localThis.result = withFixture((root) => {
-      runGit(root, ['init', '--initial-branch=main', '--quiet']);
-      runGit(root, ['config', 'user.email', 'test@example.com']);
-      runGit(root, ['config', 'user.name', 'Test User']);
-      writeFileSync(
-        root + '/package.json',
-        '{ "name": "fixture", "version": "1.2.3", "devDependencies": {} }\n'
-      );
-      writeFileSync(root + '/CHANGELOG.md', '## [1.2.3]\n\n- Baseline.\n');
-      commitFixture(root, 'baseline');
-
-      runGit(root, ['checkout', '--quiet', '-b', 'tooling']);
       writeFileSync(
         root + '/package.json',
         '{ "name": "fixture", "version": "1.2.3", "devDependencies": {}, "overrides": { "example": "1.0.0" } }\n'
       );
-      commitFixture(root, 'tooling override');
-
-      runGit(root, ['checkout', '--quiet', 'main']);
+      writeFileSync(root + '/CHANGELOG.md', '## [1.2.3]\n\n- Baseline.\n');
       writeFileSync(
-        root + '/package.json',
-        '{ "name": "fixture", "version": "1.2.4", "devDependencies": {} }\n'
+        root + '/base-package.json',
+        '{ "name": "fixture", "version": "1.2.3", "devDependencies": {} }\n'
       );
-      writeFileSync(root + '/CHANGELOG.md', '## [1.2.4]\n\n- Base release.\n');
-      commitFixture(root, 'base release');
+      const gitPath = root + '/git';
+      writeFileSync(
+        gitPath,
+        `#!/usr/bin/env sh
+case "$1" in
+  merge-base) printf '%s\\n' base-ref ;;
+  diff) printf '%s\\n' package-lock.json package.json ;;
+  show) cat "$BASE_PACKAGE" ;;
+  *) exit 1 ;;
+esac
+`
+      );
+      chmodSync(gitPath, 0o755);
 
-      runGit(root, ['checkout', '--quiet', 'tooling']);
       return execFileSync(process.execPath, [scriptPath], {
         cwd: root,
         encoding: 'utf8',
-        env: { ...process.env, BASE_REF: 'main' }
+        env: {
+          ...process.env,
+          BASE_PACKAGE: root + '/base-package.json',
+          BASE_REF: 'main',
+          PATH: `${root}:${process.env.PATH}`
+        }
       });
     });
 
