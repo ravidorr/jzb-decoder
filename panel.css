@@ -121,7 +121,7 @@ textarea::placeholder {
 }
 
 .hidden {
-  display: none !important;
+  display: none;
 }
 
 .layout {
@@ -273,7 +273,7 @@ body.is-resizing {
   color: var(--meta-highlight);
 }
 
-#detail-json {
+.detail-json {
   margin: 0;
   padding: 12px;
   font-family: var(--mono);
@@ -282,20 +282,20 @@ body.is-resizing {
   word-break: break-word;
 }
 
-#detail-json .json-key {
+.detail-json .json-key {
   color: var(--json-key);
 }
 
-#detail-json .json-value-track_event_name,
-#detail-json .json-value-type {
+.detail-json .json-value-track_event_name,
+.detail-json .json-value-type {
   color: var(--json-type);
 }
 
-#detail-json .json-value-visitor_id,
-#detail-json .json-value-account_id {
+.detail-json .json-value-visitor_id,
+.detail-json .json-value-account_id {
   color: var(--json-id);
 }
 
-#detail-json .json-value-props {
+.detail-json .json-value-props {
   color: var(--json-props);
 }

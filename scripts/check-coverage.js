@@ -12,7 +12,7 @@ const COVERAGE_FILES = [
     'devtools.js'
 ];
 const METRICS = [ 'statements', 'branches', 'functions', 'lines' ];
-const MIN_COVERAGE = 90;
+const MIN_COVERAGE = 100;
 
 function runCoverage () {
     const c8Bin = path.join(ROOT, 'node_modules', 'c8', 'bin', 'c8.js');

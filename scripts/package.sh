@@ -16,9 +16,16 @@ cp \
   "$ROOT/panel.html" \
   "$ROOT/panel.js" \
   "$ROOT/panel.css" \
+  "$ROOT/CHANGELOG.md" \
+  "$ROOT/CONTRIBUTING.md" \
+  "$ROOT/LICENSE" \
   "$ROOT/PRIVACY.md" \
   "$ROOT/README.md" \
+  "$ROOT/SECURITY.md" \
+  "$ROOT/SUPPORT.md" \
   "$DIST_DIR/"
+
+cp -R "$ROOT/design-system" "$DIST_DIR/"
 
 cp \
   "$ROOT/icons/icon16.png" \

@@ -5,13 +5,15 @@ const {
     loadIntegration
 } = require('./browser-harness');
 
-async function waitFor (predicate, attempts = 50) {
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
+async function waitFor (predicate, timeoutMs = 5_000) {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
         if (predicate()) {
             return;
         }
 
-        await new Promise((resolve) => setImmediate(resolve));
+        await new Promise((resolve) => setTimeout(resolve, 10));
     }
 
     throw new Error('Timed out waiting for condition');

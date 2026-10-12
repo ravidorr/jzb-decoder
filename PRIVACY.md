@@ -7,7 +7,7 @@ from network requests you inspect in DevTools.
 
 ## Data collection
 
-This extension does **not** collect, store, transmit, or sell personal data.
+This extension does **not** collect, transmit, persistently store, or sell personal data.
 
 - No analytics or telemetry are embedded in the extension.
 - No accounts, sign-in, or user profiles are used.
@@ -19,11 +19,13 @@ This extension does **not** collect, store, transmit, or sell personal data.
 - The extension watches DevTools network activity only while DevTools is open and only for requests whose URL contains `jzb=`.
 - Captured and decoded payloads are kept in DevTools panel memory for the current DevTools session
   and are cleared when you click **Clear** or close DevTools.
+- `localStorage` stores only the panel sidebar width. It never stores decoded payloads or request data.
 - The **Paste cURL** feature decodes text you paste manually; that text is not sent anywhere.
 
 ## Permissions
 
-The extension uses browser DevTools APIs only. It does **not** request host permissions or broad site access.
+The extension uses browser DevTools and runtime APIs plus local storage for the panel preference. It does **not**
+request host permissions or broad site access.
 
 ## Sensitive information
 
@@ -39,5 +41,5 @@ and reflected in the extension store listings.
 ## Contact
 
 For privacy questions, open an issue at
-[github.com/ravidorr/jzb-decoder/issues](https://github.com/ravidorr/jzb-decoder/issues)
-or contact the maintainer listed on the extension store listings.
+[github.com/ravidorr/jzb-decoder/issues](https://github.com/ravidorr/jzb-decoder/issues).
+For security matters, see [SECURITY.md](SECURITY.md).

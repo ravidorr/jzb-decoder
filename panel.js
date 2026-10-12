@@ -31,22 +31,22 @@ function registerThemeChangeHandler () {
 applyDevToolsTheme();
 registerThemeChangeHandler();
 
-const requestListEl = document.getElementById('request-list');
-const emptyStateEl = document.getElementById('empty-state');
-const detailEmptyEl = document.getElementById('detail-empty');
-const detailContentEl = document.getElementById('detail-content');
-const detailMetaEl = document.getElementById('detail-meta');
-const detailJsonEl = document.getElementById('detail-json');
-const pastePanelEl = document.getElementById('paste-panel');
-const pasteToggleEl = document.getElementById('paste-toggle');
-const pasteErrorEl = document.getElementById('paste-error');
-const pasteHintEl = document.getElementById('paste-hint');
-const curlInputEl = document.getElementById('curl-input');
-const searchInputEl = document.getElementById('search');
-const copyJsonButtonEl = document.getElementById('copy-json');
-const copyStatusEl = document.getElementById('copy-status');
-const layoutResizerEl = document.getElementById('layout-resizer');
-const decodeCurlButtonEl = document.getElementById('decode-curl');
+const requestListEl = /** @type {HTMLElement} */ (document.getElementById('request-list'));
+const emptyStateEl = /** @type {HTMLElement} */ (document.getElementById('empty-state'));
+const detailEmptyEl = /** @type {HTMLElement} */ (document.getElementById('detail-empty'));
+const detailContentEl = /** @type {HTMLElement} */ (document.getElementById('detail-content'));
+const detailMetaEl = /** @type {HTMLElement} */ (document.getElementById('detail-meta'));
+const detailJsonEl = /** @type {HTMLElement} */ (document.getElementById('detail-json'));
+const pastePanelEl = /** @type {HTMLElement} */ (document.getElementById('paste-panel'));
+const pasteToggleEl = /** @type {HTMLButtonElement} */ (document.getElementById('paste-toggle'));
+const pasteErrorEl = /** @type {HTMLElement} */ (document.getElementById('paste-error'));
+const pasteHintEl = /** @type {HTMLElement} */ (document.getElementById('paste-hint'));
+const curlInputEl = /** @type {HTMLTextAreaElement} */ (document.getElementById('curl-input'));
+const searchInputEl = /** @type {HTMLInputElement} */ (document.getElementById('search'));
+const copyJsonButtonEl = /** @type {HTMLButtonElement} */ (document.getElementById('copy-json'));
+const copyStatusEl = /** @type {HTMLElement} */ (document.getElementById('copy-status'));
+const layoutResizerEl = /** @type {HTMLElement} */ (document.getElementById('layout-resizer'));
+const decodeCurlButtonEl = /** @type {HTMLButtonElement} */ (document.getElementById('decode-curl'));
 
 const SIDEBAR_WIDTH_KEY = 'jzb-decoder-sidebar-width';
 const MIN_SIDEBAR_WIDTH = 200;
@@ -297,7 +297,11 @@ function syncSelectionToFilter (filteredRequests) {
         return;
     }
 
-    selectedId = filteredRequests[0]?.id ?? null;
+    selectedId = null;
+
+    if (filteredRequests.length > 0) {
+        selectedId = filteredRequests[0].id;
+    }
 }
 
 function shouldUpdateDetail (updateDetail, previousSelectedId) {
@@ -374,7 +378,7 @@ function selectRequest (id) {
     const nextButton = requestListEl.querySelector(`.request-item[data-id="${id}"]`);
 
     previousButton?.classList.remove('selected');
-    nextButton?.classList.add('selected');
+    nextButton.classList.add('selected');
     selectedId = id;
     renderDetail();
 }
@@ -417,8 +421,13 @@ function renderDetail () {
         labelEl.textContent = label;
 
         const valueEl = document.createElement('div');
-        valueEl.className = `meta-value${HIGHLIGHTED_META_LABELS.has(label) ? ' meta-value-highlight' : ''}`;
-        valueEl.textContent = value ?? '—';
+        valueEl.className = 'meta-value';
+
+        if (HIGHLIGHTED_META_LABELS.has(label)) {
+            valueEl.classList.add('meta-value-highlight');
+        }
+
+        valueEl.textContent = value;
 
         row.append(labelEl, valueEl);
         detailMetaEl.appendChild(row);
@@ -456,8 +465,11 @@ function hideCopyStatus () {
     }
 }
 
+/**
+ * @returns {HTMLElement | null}
+ */
 function getLayoutEl () {
-    return document.querySelector('.layout');
+    return /** @type {HTMLElement | null} */ (document.querySelector('.layout'));
 }
 
 function getSidebarWidth () {
@@ -524,15 +536,17 @@ function initLayoutResizer () {
     layoutResizerEl.addEventListener('keydown', (event) => {
         let nextWidth = getSidebarWidth();
 
-        if (event.key === 'ArrowLeft') {
-            nextWidth -= event.shiftKey ? 40 : 16;
-        } else if (event.key === 'ArrowRight') {
-            nextWidth += event.shiftKey ? 40 : 16;
-        } else {
+        const direction = {
+            ArrowLeft: -1,
+            ArrowRight: 1
+        }[ event.key ];
+
+        if (!direction) {
             return;
         }
 
         event.preventDefault();
+        nextWidth += direction * (event.shiftKey ? 40 : 16);
         setSidebarWidth(nextWidth);
         localStorage.setItem(SIDEBAR_WIDTH_KEY, String(getSidebarWidth()));
     });

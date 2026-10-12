@@ -7,7 +7,7 @@
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/ravidorr/jzb-decoder/graphs/commit-activity)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/)
-[![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![ESLint](https://img.shields.io/badge/ESLint-10-4B32C3?logo=eslint&logoColor=white)](https://eslint.org/)
 
 DevTools extension for Chrome, Firefox, and Edge that watches network traffic for requests containing a `jzb=` query parameter,
@@ -21,6 +21,9 @@ decodes the zlib-compressed JSON payload, and shows it in a **Decipher JZB** pan
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 - License: [MIT](LICENSE)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Security: [SECURITY.md](SECURITY.md)
+- Support: [SUPPORT.md](SUPPORT.md)
+- Design system: [design-system/README.md](design-system/README.md)
 
 ## What is `jzb`?
 
@@ -55,6 +58,8 @@ The extension is plain JavaScript with no build step. After you have the code, l
 ```bash
 git clone https://github.com/ravidorr/jzb-decoder.git
 cd jzb-decoder
+nvm install && nvm use
+npm ci
 ```
 
 You can also download a release or branch as a ZIP and extract it.
@@ -63,6 +68,7 @@ Optional checks before loading:
 
 ```bash
 npm test
+npm run typecheck
 npm run package
 ```
 
@@ -120,6 +126,7 @@ Click **Reload** on `chrome://extensions` or `edge://extensions` after pulling u
 ```bash
 npm test
 npm run lint          # js, css, md, html
+npm run typecheck
 npm run check-version
 npm run package
 npm run install-hooks

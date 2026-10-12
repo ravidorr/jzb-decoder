@@ -64,7 +64,7 @@ const JzbDecoder = (() => {
             }
         }
 
-        throw lastError || new Error('Failed to decompress jzb payload');
+        throw lastError;
     }
 
     async function decodeJzb (jzb) {
@@ -92,21 +92,10 @@ const JzbDecoder = (() => {
     }
 
     function unquoteCurlValue (value) {
-        if (!value) return value;
-
-        const trimmed = value.trim();
-
-        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-            (trimmed.startsWith('\'') && trimmed.endsWith('\''))) {
-            return trimmed.slice(1, -1);
-        }
-
-        return trimmed;
+        return value.trim();
     }
 
     function decodeJzbParam (value) {
-        if (!value) return null;
-
         const trimmed = unquoteCurlValue(value.replace(/^[\\'"`,]+|[\\'"`,]+$/g, ''));
 
         try {
@@ -117,8 +106,6 @@ const JzbDecoder = (() => {
     }
 
     function extractJzbFromText (text) {
-        if (!text) return null;
-
         const directMatch = text.match(/[?&]jzb=([^&\s'"\\]+)/);
 
         if (directMatch) {
@@ -365,10 +352,6 @@ const JzbDecoder = (() => {
             const [ , indent, key, separator, value ] = keyMatch;
             const keyName = key.slice(1, -1);
             const valueClass = HIGHLIGHT_JSON_VALUE_CLASSES[ keyName ];
-
-            if (!valueClass) {
-                return escapeHtml(line);
-            }
 
             return `${escapeHtml(indent)}<span class="json-key">${escapeHtml(key)}</span>${escapeHtml(separator)}<span class="json-value ${valueClass}">${escapeHtml(value)}</span>`;
         }).join('\n');

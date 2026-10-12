@@ -313,14 +313,14 @@ function createMockPort (name = 'jzb-panel', { throwOnPost = false, throwOnDisco
     };
 }
 
-function createChromeMock ({ themeApi = 'chrome' } = {}) {
+function createChromeMock ({ themeApi = 'chrome', themeName = 'default' } = {}) {
     const connectListeners = [];
     const networkListeners = [];
     let themeChangeHandler = null;
     const themeChangedListeners = [];
 
     const panels = {
-        themeName: 'default',
+        themeName,
         create () {},
         onThemeChanged: {
             addListener (listener) {
@@ -517,8 +517,8 @@ function loadIntegration ({ execCommandImpl, localStorageValues, themeApi, throw
     };
 }
 
-function loadPanel ({ execCommandImpl, localStorageValues, themeApi } = {}) {
-    const harness = createChromeMock({ themeApi });
+function loadPanel ({ execCommandImpl, localStorageValues, themeApi, themeName, throwOnPost = false } = {}) {
+    const harness = createChromeMock({ themeApi, themeName });
     const dom = createDom({ execCommandImpl });
     const panelPort = createMockPort('jzb-panel');
     const postedToDevtools = [];
@@ -530,6 +530,10 @@ function loadPanel ({ execCommandImpl, localStorageValues, themeApi } = {}) {
     }
 
     panelPort.postMessage = (message) => {
+        if (throwOnPost) {
+            throw new Error('postMessage failed');
+        }
+
         postedToDevtools.push(message);
     };
 

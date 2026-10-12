@@ -22,6 +22,17 @@ async function runDevtoolsTests () {
         assert.equal(port.messages[ 0 ].type, 'init');
     });
 
+    localThis.test('ignores ports that do not belong to the decoder panel', async () => {
+        resetExtensionModules();
+        const harness = loadDevtools();
+        const port = createMockPort('unrelated-panel');
+
+        harness.connectListeners[ 0 ](port);
+        await port.send({ type: 'clear' });
+
+        assert.equal(port.messages.length, 0);
+    });
+
     localThis.test('clears captured requests and notifies the panel', async () => {
         resetExtensionModules();
         const harness = loadDevtools();
@@ -216,6 +227,22 @@ async function runDevtoolsTests () {
         await harness.networkListeners[ 0 ]({
             request: {
                 url: 'https://example.com/beacon?foo=bar',
+                method: 'GET'
+            }
+        });
+
+        assert.equal(port.messages.filter((message) => message.type === 'request').length, 0);
+    });
+
+    localThis.test('skips network requests with an empty jzb parameter', async () => {
+        resetExtensionModules();
+        const harness = loadDevtools();
+        const port = createMockPort('jzb-panel');
+        harness.connectListeners[ 0 ](port);
+
+        await harness.networkListeners[ 0 ]({
+            request: {
+                url: 'https://example.com/beacon?jzb=',
                 method: 'GET'
             }
         });
