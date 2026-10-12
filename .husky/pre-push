@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
+set -e
+
 # Never push directly to main: use a branch and a draft PR.
 while read -r _local_ref _local_sha remote_ref _remote_sha; do
   if [ "$remote_ref" = "refs/heads/main" ]; then
