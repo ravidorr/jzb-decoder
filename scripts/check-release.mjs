@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 import semver from 'semver';
 
 const releaseTriggerRootFiles = new Set([
@@ -14,6 +15,38 @@ const releaseTriggerRootFiles = new Set([
   'panel.css',
   'devtools.html'
 ]);
+const packageJsonToolingFields = new Set(['devDependencies', 'overrides']);
+const runtimeDependencyFields = new Set([
+  'dependencies',
+  'optionalDependencies',
+  'peerDependencies'
+]);
+
+function hasRuntimeDependencies(packageJson) {
+  return [...runtimeDependencyFields].some(
+    (field) => Object.keys(packageJson[field] ?? {}).length > 0
+  );
+}
+
+function isToolingOnlyPackageChange(basePackage, currentPackage) {
+  if (
+    !basePackage ||
+    !currentPackage ||
+    hasRuntimeDependencies(basePackage) ||
+    hasRuntimeDependencies(currentPackage)
+  ) {
+    return false;
+  }
+
+  const withoutToolingFields = (packageJson) => Object.fromEntries(
+    Object.entries(packageJson).filter(([field]) => !packageJsonToolingFields.has(field))
+  );
+
+  return isDeepStrictEqual(
+    withoutToolingFields(basePackage),
+    withoutToolingFields(currentPackage)
+  );
+}
 
 export function extractChangelogNotes(changelog, version) {
   const header = `## [${version}]`;
@@ -39,9 +72,13 @@ export function extractChangelogNotes(changelog, version) {
   return notes.join('\n');
 }
 
-export function requiresRelease(changedFiles) {
+export function requiresRelease(changedFiles, basePackage, currentPackage) {
   return changedFiles.some(
-    (file) => releaseTriggerRootFiles.has(file) || file.startsWith('src/')
+    (file) => (
+      file === 'package.json'
+        ? !isToolingOnlyPackageChange(basePackage, currentPackage)
+        : releaseTriggerRootFiles.has(file) || file.startsWith('src/')
+    )
   );
 }
 
@@ -99,14 +136,15 @@ function runReleaseGate(baseRef) {
     .split('\n')
     .filter(Boolean);
 
-  if (!requiresRelease(changedFiles)) {
-    return;
-  }
-
   const basePackage = JSON.parse(
     execFileSync('git', ['show', `${baseRef}:package.json`], { encoding: 'utf8' })
   );
   const currentPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+  if (!requiresRelease(changedFiles, basePackage, currentPackage)) {
+    return;
+  }
+
   validateRelease(
     basePackage.version,
     currentPackage.version,
