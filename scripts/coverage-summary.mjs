@@ -26,7 +26,7 @@ console.log(
     '### Coverage',
     '',
     '| Metric | Coverage | Covered | Status |',
-    '| --- | --- | --- |',
+    '| --- | --- | --- | --- |',
     ...rows,
     ''
   ].join('\n')

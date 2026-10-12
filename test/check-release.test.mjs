@@ -34,6 +34,54 @@ describe('check-release', () => {
     expect(requiresRelease(localThis.extensionRuntime)).toBe(true);
   });
 
+  it('does not require a release for development dependency overrides', () => {
+    const localThis = {
+      basePackage: {
+        devDependencies: { 'markdownlint-cli2': '0.23.3' },
+        name: 'jzb-decoder',
+        version: '1.2.3'
+      },
+      currentPackage: {
+        devDependencies: { 'markdownlint-cli2': '0.23.3' },
+        name: 'jzb-decoder',
+        overrides: { 'smol-toml': '1.9.0' },
+        version: '1.2.3'
+      }
+    };
+
+    expect(
+      requiresRelease(
+        ['package-lock.json', 'package.json'],
+        localThis.basePackage,
+        localThis.currentPackage
+      )
+    ).toBe(false);
+  });
+
+  it('requires a release when a package has runtime dependencies', () => {
+    const localThis = {
+      basePackage: {
+        dependencies: { semver: '7.8.5' },
+        name: 'jzb-decoder',
+        version: '1.2.3'
+      },
+      currentPackage: {
+        dependencies: { semver: '7.8.5' },
+        name: 'jzb-decoder',
+        overrides: { semver: '7.8.6' },
+        version: '1.2.3'
+      }
+    };
+
+    expect(
+      requiresRelease(
+        ['package-lock.json', 'package.json'],
+        localThis.basePackage,
+        localThis.currentPackage
+      )
+    ).toBe(true);
+  });
+
   it('validates an increased version with matching notes', () => {
     const localThis = {
       changelog: '## [1.2.3] - 2026-10-11\n\n- Baseline.\n',
