@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Decipher JZB</title>
+    <link rel="stylesheet" href="panel.css">
+  </head>
+  <body>
+    <section class="paste-section">
+      <div class="paste-header">
+        <button id="paste-toggle" type="button" aria-expanded="false" aria-controls="paste-panel">
+          Paste cURL
+        </button>
+      </div>
+      <div id="paste-panel" class="paste-panel hidden">
+        <textarea
+          id="curl-input"
+          placeholder="Paste a copied curl command here (⌘V / Ctrl+V)..."
+          aria-label="cURL command"></textarea>
+        <div class="paste-actions">
+          <button id="decode-curl" type="button">Decode</button>
+          <button id="clear-curl" type="button">Clear cURL</button>
+        </div>
+        <div id="paste-error" class="error hidden"></div>
+        <div id="paste-hint" class="paste-hint hidden"></div>
+      </div>
+    </section>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <input
+            id="search"
+            type="search"
+            placeholder="Filter requests..."
+            aria-label="Filter captured requests">
+          <button id="clear-requests" type="button">Clear list</button>
+        </div>
+        <div class="request-list" id="request-list">
+          <div class="empty-state" id="empty-state">
+            Listening for network requests with <code>jzb=</code> in the URL.
+          </div>
+        </div>
+      </aside>
+      <div
+        id="layout-resizer"
+        class="layout-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize request list"
+        aria-valuemin="200"
+        tabindex="0"></div>
+      <section class="detail" id="detail">
+        <div class="detail-empty" id="detail-empty">
+          Select a captured request to view the decoded payload.
+        </div>
+        <div class="detail-content hidden" id="detail-content">
+          <div class="detail-actions">
+            <button id="copy-json" type="button">Copy JSON</button>
+            <span id="copy-status" class="copy-status hidden" aria-live="polite">Copied</span>
+          </div>
+          <div class="detail-meta" id="detail-meta"></div>
+          <pre id="detail-json" class="detail-json"></pre>
+        </div>
+      </section>
+    </main>
+
+    <script src="jzb.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "include": [
+    "jzb.js",
+    "panel.js",
+    "devtools.js"
+  ],
+  "exclude": [
+    "**/*.test.js",
+    "test/**",
+    "scripts/**",
+    "node_modules/**",
+    "dist/**",
+    "coverage/**"
+  ],
+  "reporter": [
+    "text",
+    "json-summary"
+  ],
+  "reports-dir": "coverage",
+  "all": true
+}

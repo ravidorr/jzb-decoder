@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="JZB Decoder">
+  <rect width="128" height="128" rx="24" fill="#1e1e1e"/>
+  <rect x="8" y="8" width="112" height="112" rx="18" fill="#252526" stroke="#3794ff" stroke-width="4"/>
+  <path fill="#3794ff" d="M36 34h40v12H48v20c0 10 6 16 18 16h10v12H64c-18 0-28-10-28-28V34z"/>
+  <rect x="82" y="34" width="12" height="60" rx="2" fill="#9cdcfe"/>
+  <rect x="98" y="34" width="12" height="40" rx="2" fill="#4ec9b0"/>
+</svg>

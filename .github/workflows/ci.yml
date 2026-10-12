@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check-version
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Tests with 100% coverage gate
+        run: npm run test:coverage
+      - name: Coverage report (job summary and PR comment)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CAN_COMMENT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
+        run: |
+          node scripts/coverage-summary.mjs > coverage-report.md
+          cat coverage-report.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "$CAN_COMMENT" = "true" ]; then
+            gh pr comment "$PR_NUMBER" --body-file coverage-report.md --edit-last --create-if-none
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage
+          path: coverage
+      - name: Test security policy validation
+        run: npm run test:security-policy
+      - name: Build extension package
+        run: npm run package
+      - name: Verify package contents
+        run: |
+          test -f dist/jzb-decoder.zip
+          test -f dist/jzb-decoder/manifest.json
+          unzip -l dist/jzb-decoder.zip | grep -q 'manifest.json'
+          unzip -l dist/jzb-decoder.zip | grep -q 'icons/icon128.png'
+          unzip -l dist/jzb-decoder.zip | grep -q 'jzb.js'
+          bash scripts/verify-package.sh
+      - name: Dependency audit (production, blocking)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Dependency audit (dev tooling, informational)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+      - name: Version and changelog gate
+        if: github.actor != 'dependabot[bot]'
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before || 'origin/main' }}
+        run: node scripts/check-release.mjs
