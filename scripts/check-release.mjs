@@ -127,9 +127,14 @@ function runReleaseGate(baseRef) {
     return;
   }
 
+  const mergeBase = execFileSync(
+    'git',
+    ['merge-base', baseRef, 'HEAD'],
+    { encoding: 'utf8' }
+  ).trim();
   const changedFiles = execFileSync(
     'git',
-    ['diff', '--name-only', `${baseRef}...HEAD`],
+    ['diff', '--name-only', `${mergeBase}..HEAD`],
     { encoding: 'utf8' }
   )
     .trim()
@@ -137,7 +142,7 @@ function runReleaseGate(baseRef) {
     .filter(Boolean);
 
   const basePackage = JSON.parse(
-    execFileSync('git', ['show', `${baseRef}:package.json`], { encoding: 'utf8' })
+    execFileSync('git', ['show', `${mergeBase}:package.json`], { encoding: 'utf8' })
   );
   const currentPackage = JSON.parse(readFileSync('package.json', 'utf8'));
 

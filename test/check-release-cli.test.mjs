@@ -26,6 +26,15 @@ function writeFixture(root, releaseNotes) {
   writeFileSync(root + '/release-notes.md', releaseNotes);
 }
 
+function runGit(root, args) {
+  execFileSync('git', args, { cwd: root });
+}
+
+function commitFixture(root, message) {
+  runGit(root, ['add', '.']);
+  runGit(root, ['commit', '--quiet', '-m', message]);
+}
+
 describe('check-release CLI', () => {
   it('extracts release notes', () => {
     const localThis = { notes: undefined };
@@ -58,5 +67,45 @@ describe('check-release CLI', () => {
     });
 
     expect(localThis.result).toContain('release notes must not be empty');
+  });
+
+  it('uses the merge-base package metadata for a tooling-only branch', () => {
+    const localThis = { result: undefined };
+
+    localThis.result = withFixture((root) => {
+      runGit(root, ['init', '--initial-branch=main', '--quiet']);
+      runGit(root, ['config', 'user.email', 'test@example.com']);
+      runGit(root, ['config', 'user.name', 'Test User']);
+      writeFileSync(
+        root + '/package.json',
+        '{ "name": "fixture", "version": "1.2.3", "devDependencies": {} }\n'
+      );
+      writeFileSync(root + '/CHANGELOG.md', '## [1.2.3]\n\n- Baseline.\n');
+      commitFixture(root, 'baseline');
+
+      runGit(root, ['checkout', '--quiet', '-b', 'tooling']);
+      writeFileSync(
+        root + '/package.json',
+        '{ "name": "fixture", "version": "1.2.3", "devDependencies": {}, "overrides": { "example": "1.0.0" } }\n'
+      );
+      commitFixture(root, 'tooling override');
+
+      runGit(root, ['checkout', '--quiet', 'main']);
+      writeFileSync(
+        root + '/package.json',
+        '{ "name": "fixture", "version": "1.2.4", "devDependencies": {} }\n'
+      );
+      writeFileSync(root + '/CHANGELOG.md', '## [1.2.4]\n\n- Base release.\n');
+      commitFixture(root, 'base release');
+
+      runGit(root, ['checkout', '--quiet', 'tooling']);
+      return execFileSync(process.execPath, [scriptPath], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, BASE_REF: 'main' }
+      });
+    });
+
+    expect(localThis.result).toBe('');
   });
 });
