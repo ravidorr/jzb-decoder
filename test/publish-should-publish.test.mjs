@@ -11,8 +11,18 @@ const testDirectory = dirname(fileURLToPath(import.meta.url));
 const scriptPath = join(testDirectory, '..', 'scripts', 'should-publish.mjs');
 const baseManifest = { manifest_version: 3, name: 'JZB Decoder', permissions: [], version: '1.2.3' };
 
+// Git hooks export GIT_DIR and related variables. Without removing them, the git commands below would act
+// on the repository running the hook instead of the temporary one.
+function isolatedEnvironment(values = {}) {
+  const environment = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))
+  );
+
+  return { ...environment, ...values };
+}
+
 function git(root, ...args) {
-  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8', env: isolatedEnvironment() }).trim();
 }
 
 function withRepository(run) {
@@ -42,7 +52,7 @@ function runCli(root, extraEnv = {}) {
     cwd: root,
     encoding: 'utf8',
     stdio: 'pipe',
-    env: { ...process.env, BASE_SHA: base, HEAD_SHA: head, ...extraEnv }
+    env: isolatedEnvironment({ BASE_SHA: base, HEAD_SHA: head, ...extraEnv })
   });
 }
 
@@ -130,7 +140,7 @@ describe('should-publish CLI', () => {
       execFileSync(process.execPath, [scriptPath], {
         encoding: 'utf8',
         stdio: 'pipe',
-        env: { ...process.env, BASE_SHA: '', HEAD_SHA: '' }
+        env: isolatedEnvironment({ BASE_SHA: '', HEAD_SHA: '' })
       });
     } catch (error) {
       localThis.stderr = error.stderr.toString();
