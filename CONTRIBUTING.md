@@ -51,9 +51,12 @@ npm run redact-screenshot -- path/to/raw-capture.png docs/screenshots/output.png
 
 - Keep `manifest.json` and `package.json` versions identical.
 - Use `npm run version:patch|minor|major` to bump both files together.
-- Update `CHANGELOG.md` when preparing a release.
-- Changes to `package.json` or extension runtime files require one SemVer bump and a non-empty matching
-  changelog entry.
+- Update the version in `package-lock.json` (two places) and the supported version in `SECURITY.md` in the same
+  commit. The bump script does not update them.
+- Every pull request requires one SemVer bump and a non-empty matching `CHANGELOG.md` entry, except Dependabot
+  pull requests.
+- Merged pull requests that change shipped extension files are submitted to the Chrome Web Store automatically.
+  See [docs/publishing/chrome.md](docs/publishing/chrome.md).
 
 ## Pull requests
 

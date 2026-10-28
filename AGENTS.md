@@ -24,8 +24,8 @@ DevTools extension for decoding jzb URL payloads in Chrome, Edge, and Firefox.
 - Linters are strict (ESLint, Stylelint, html-validate, markdownlint). Do not weaken rules to pass.
 - New UI work uses the tokens and components in `/design-system`. Migrate existing values when modifying their UI.
 - Pin Node via `.nvmrc`; package manager is `npm`. Keep `package-lock.json` committed.
-- PRs that change `package.json` or extension runtime files update `CHANGELOG.md` and bump the version (one
-  SemVer bump per PR). Docs-only, test-only, and tooling-only PRs do not.
+- Every PR updates `CHANGELOG.md` and bumps the version (one SemVer bump per PR), except Dependabot PRs.
+  Merged PRs that change shipped extension files are submitted to the Chrome Web Store automatically.
 - Track open work in `TODO.md`.
 
 ## Layout

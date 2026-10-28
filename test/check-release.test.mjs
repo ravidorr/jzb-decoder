@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   extractChangelogNotes,
-  requiresRelease,
   validateRelease,
   validateTaggedRelease
 } from '../scripts/check-release.mjs';
@@ -18,68 +17,6 @@ describe('check-release', () => {
     localThis.notes = extractChangelogNotes(localThis.changelog, '1.2.3');
 
     expect(localThis.notes).toBe('\n- Baseline.\n');
-  });
-
-  it('requires a release for source and package changes only', () => {
-    const localThis = {
-      tooling: ['.github/workflows/ci.yml', 'scripts/check-release.mjs'],
-      source: ['src/index.js'],
-      packageJson: ['package.json'],
-      extensionRuntime: ['panel.js']
-    };
-
-    expect(requiresRelease(localThis.tooling)).toBe(false);
-    expect(requiresRelease(localThis.source)).toBe(true);
-    expect(requiresRelease(localThis.packageJson)).toBe(true);
-    expect(requiresRelease(localThis.extensionRuntime)).toBe(true);
-  });
-
-  it('does not require a release for development dependency overrides', () => {
-    const localThis = {
-      basePackage: {
-        devDependencies: { 'markdownlint-cli2': '0.23.3' },
-        name: 'jzb-decoder',
-        version: '1.2.3'
-      },
-      currentPackage: {
-        devDependencies: { 'markdownlint-cli2': '0.23.3' },
-        name: 'jzb-decoder',
-        overrides: { 'smol-toml': '1.9.0' },
-        version: '1.2.3'
-      }
-    };
-
-    expect(
-      requiresRelease(
-        ['package-lock.json', 'package.json'],
-        localThis.basePackage,
-        localThis.currentPackage
-      )
-    ).toBe(false);
-  });
-
-  it('requires a release when a package has runtime dependencies', () => {
-    const localThis = {
-      basePackage: {
-        dependencies: { semver: '7.8.5' },
-        name: 'jzb-decoder',
-        version: '1.2.3'
-      },
-      currentPackage: {
-        dependencies: { semver: '7.8.5' },
-        name: 'jzb-decoder',
-        overrides: { semver: '7.8.6' },
-        version: '1.2.3'
-      }
-    };
-
-    expect(
-      requiresRelease(
-        ['package-lock.json', 'package.json'],
-        localThis.basePackage,
-        localThis.currentPackage
-      )
-    ).toBe(true);
   });
 
   it('validates an increased version with matching notes', () => {
