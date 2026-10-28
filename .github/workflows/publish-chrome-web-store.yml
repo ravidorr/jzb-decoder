@@ -24,10 +24,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
+      - name: Fetch the pull request head
+        run: git fetch --no-tags origin "refs/pull/${{ github.event.pull_request.number }}/head"
       - id: should-publish
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/should-publish.mjs
 
   publish:

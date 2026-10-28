@@ -25,6 +25,13 @@ function git(root, ...args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', env: isolatedEnvironment() }).trim();
 }
 
+function commitFile(root, file, content, message) {
+  writeFileSync(join(root, file), content);
+  git(root, 'add', '.');
+  git(root, 'commit', '--quiet', '-m', message);
+}
+
+// Builds a repository whose main branch holds the base commit, then lets the test simulate pull requests.
 function withRepository(run) {
   const localThis = { root: mkdtempSync(join(tmpdir(), 'should-publish-')) };
 
@@ -33,8 +40,10 @@ function withRepository(run) {
     git(localThis.root, 'config', 'user.email', 'test@example.com');
     git(localThis.root, 'config', 'user.name', 'Test');
     git(localThis.root, 'config', 'commit.gpgsign', 'false');
+    git(localThis.root, 'branch', '-M', 'main');
     writeFileSync(join(localThis.root, 'manifest.json'), `${JSON.stringify(baseManifest)}\n`);
     writeFileSync(join(localThis.root, 'README.md'), 'one\n');
+    writeFileSync(join(localThis.root, 'panel.js'), 'v1\n');
     git(localThis.root, 'add', '.');
     git(localThis.root, 'commit', '--quiet', '-m', 'base');
 
@@ -44,15 +53,24 @@ function withRepository(run) {
   }
 }
 
-function runCli(root, extraEnv = {}) {
-  const base = git(root, 'rev-parse', 'HEAD~1');
-  const head = git(root, 'rev-parse', 'HEAD');
+// Commits a change on a pull request branch, then squash-merges the same change onto main.
+function mergePullRequest(root, file, content, { branchFrom = 'main' } = {}) {
+  git(root, 'checkout', '--quiet', '-b', 'pr', branchFrom);
+  commitFile(root, file, content, 'pull request');
+  const headSha = git(root, 'rev-parse', 'HEAD');
 
+  git(root, 'checkout', '--quiet', 'main');
+  commitFile(root, file, content, 'squash merge');
+
+  return { headSha, mergeSha: git(root, 'rev-parse', 'HEAD') };
+}
+
+function runCli(root, { mergeSha, headSha }, extraEnv = {}) {
   return execFileSync(process.execPath, [scriptPath], {
     cwd: root,
     encoding: 'utf8',
     stdio: 'pipe',
-    env: isolatedEnvironment({ BASE_SHA: base, HEAD_SHA: head, ...extraEnv })
+    env: isolatedEnvironment({ MERGE_SHA: mergeSha, HEAD_SHA: headSha, ...extraEnv })
   });
 }
 
@@ -106,11 +124,10 @@ describe('should-publish CLI', () => {
     const localThis = { output: undefined };
 
     localThis.output = withRepository((root) => {
-      writeFileSync(join(root, 'README.md'), 'two\n');
-      git(root, 'commit', '--quiet', '-am', 'docs');
+      const merged = mergePullRequest(root, 'README.md', 'two\n');
       writeFileSync(join(root, 'out'), '');
 
-      const stdout = runCli(root, { GITHUB_OUTPUT: join(root, 'out') });
+      const stdout = runCli(root, merged, { GITHUB_OUTPUT: join(root, 'out') });
 
       return { stdout, file: readFileSync(join(root, 'out'), 'utf8') };
     });
@@ -122,12 +139,36 @@ describe('should-publish CLI', () => {
   it('writes publish=true when a runtime file changed', () => {
     const localThis = { stdout: undefined };
 
-    localThis.stdout = withRepository((root) => {
-      writeFileSync(join(root, 'panel.js'), 'console.log(1);\n');
-      git(root, 'add', '.');
-      git(root, 'commit', '--quiet', '-m', 'runtime');
+    localThis.stdout = withRepository((root) => runCli(root, mergePullRequest(root, 'panel.js', 'v2\n')));
 
-      return runCli(root);
+    expect(localThis.stdout).toBe('publish=true\n');
+  });
+
+  it('ignores runtime changes merged to main after the pull request branched', () => {
+    const localThis = { stdout: undefined };
+
+    localThis.stdout = withRepository((root) => {
+      git(root, 'checkout', '--quiet', '-b', 'pr');
+      commitFile(root, 'README.md', 'two\n', 'pull request');
+      const headSha = git(root, 'rev-parse', 'HEAD');
+
+      git(root, 'checkout', '--quiet', 'main');
+      commitFile(root, 'panel.js', 'v2\n', 'unrelated runtime merge');
+      commitFile(root, 'README.md', 'two\n', 'squash merge');
+
+      return runCli(root, { headSha, mergeSha: git(root, 'rev-parse', 'HEAD') });
+    });
+
+    expect(localThis.stdout).toContain('publish=false\n');
+  });
+
+  it('publishes a pull request that reverts a shipped file to its older state', () => {
+    const localThis = { stdout: undefined };
+
+    localThis.stdout = withRepository((root) => {
+      commitFile(root, 'panel.js', 'v2\n', 'runtime change');
+
+      return runCli(root, mergePullRequest(root, 'panel.js', 'v1\n'));
     });
 
     expect(localThis.stdout).toBe('publish=true\n');
@@ -140,12 +181,12 @@ describe('should-publish CLI', () => {
       execFileSync(process.execPath, [scriptPath], {
         encoding: 'utf8',
         stdio: 'pipe',
-        env: isolatedEnvironment({ BASE_SHA: '', HEAD_SHA: '' })
+        env: isolatedEnvironment({ MERGE_SHA: '', HEAD_SHA: '' })
       });
     } catch (error) {
       localThis.stderr = error.stderr.toString();
     }
 
-    expect(localThis.stderr).toContain('BASE_SHA and HEAD_SHA are required');
+    expect(localThis.stderr).toContain('MERGE_SHA and HEAD_SHA are required');
   });
 });

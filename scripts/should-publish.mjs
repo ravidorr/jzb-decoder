@@ -40,20 +40,27 @@ function gitOutput(args) {
 }
 
 function runCli() {
-  const baseSha = process.env.BASE_SHA;
+  const mergeSha = process.env.MERGE_SHA;
   const headSha = process.env.HEAD_SHA;
 
-  if (!baseSha || !headSha) {
-    throw new Error('BASE_SHA and HEAD_SHA are required');
+  if (!mergeSha || !headSha) {
+    throw new Error('MERGE_SHA and HEAD_SHA are required');
   }
 
-  const changedFiles = gitOutput(['diff', '--name-only', baseSha, headSha])
+  // pull_request.base.sha can be stale, so find where the pull request actually branched from main:
+  // the merge base of the pull request head and the main commit that preceded the merge.
+  const mergeBase = gitOutput([
+    'merge-base',
+    gitOutput(['rev-parse', `${mergeSha}^1`]).trim(),
+    headSha
+  ]).trim();
+  const changedFiles = gitOutput(['diff', '--name-only', mergeBase, headSha])
     .trim()
     .split('\n')
     .filter(Boolean);
   const result = shouldPublish({
     changedFiles,
-    baseManifest: JSON.parse(gitOutput(['show', `${baseSha}:manifest.json`])),
+    baseManifest: JSON.parse(gitOutput(['show', `${mergeBase}:manifest.json`])),
     headManifest: JSON.parse(gitOutput(['show', `${headSha}:manifest.json`]))
   });
 
