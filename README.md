@@ -165,7 +165,7 @@ Treat decoded output as sensitive because payloads may include user or session i
 
 Store-specific submission steps:
 
-- Chrome Web Store: see below
+- Chrome Web Store: see below, or [docs/publishing/chrome.md](docs/publishing/chrome.md) for automated publishing on merge
 - Microsoft Edge Add-ons: [docs/publishing/edge.md](docs/publishing/edge.md)
 - Firefox AMO: [docs/publishing/firefox.md](docs/publishing/firefox.md)
 
@@ -220,6 +220,9 @@ Before each release:
 2. Update `CHANGELOG.md`
 3. Run `npm test` and `npm run package`
 4. Commit, tag the release (`v1.0.1`), and upload the new zip to the store item
+
+Merged pull requests that change the extension are submitted to the Chrome Web Store automatically. See
+[docs/publishing/chrome.md](docs/publishing/chrome.md).
 
 ## Notes
 

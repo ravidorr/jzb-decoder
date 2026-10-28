@@ -8,6 +8,7 @@ OUT="$ROOT/dist/jzb-decoder.zip"
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR/icons"
 
+# Runtime files copied here must stay in sync with scripts/should-publish.mjs.
 cp \
   "$ROOT/manifest.json" \
   "$ROOT/devtools.html" \

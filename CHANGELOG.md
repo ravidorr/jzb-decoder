@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-10-28
+
+### Added
+
+- GitHub Actions workflow that submits the extension to the Chrome Web Store after a pull request that changes
+  shipped extension files is merged into `main`
+- Chrome Web Store publishing guide in `docs/publishing/chrome.md`
+
+### Changed
+
+- The release gate now requires a version bump and changelog entry on every pull request except Dependabot pull
+  requests
+- The version and changelog gate in CI runs on pull requests only
+
 ## [1.2.3] - 2026-10-11
 
 ### Changed

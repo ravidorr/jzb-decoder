@@ -59,7 +59,7 @@ describe('check-release CLI', () => {
     expect(localThis.result).toContain('release notes must not be empty');
   });
 
-  it('uses the merge-base package metadata for a tooling-only branch', () => {
+  it('requires a version bump on a tooling-only branch', () => {
     const localThis = { result: undefined };
 
     localThis.result = withFixture((root) => {
@@ -78,7 +78,47 @@ describe('check-release CLI', () => {
         `#!/usr/bin/env sh
 case "$1" in
   merge-base) printf '%s\\n' base-ref ;;
-  diff) printf '%s\\n' package-lock.json package.json ;;
+  show) cat "$BASE_PACKAGE" ;;
+  *) exit 1 ;;
+esac
+`
+      );
+      chmodSync(gitPath, 0o755);
+
+      try {
+        execFileSync(process.execPath, [scriptPath], {
+          cwd: root,
+          encoding: 'utf8',
+          stdio: 'pipe',
+          env: {
+            ...process.env,
+            BASE_PACKAGE: root + '/base-package.json',
+            BASE_REF: 'main',
+            PATH: `${root}:${process.env.PATH}`
+          }
+        });
+        return '';
+      } catch (error) {
+        return error.stderr.toString();
+      }
+    });
+
+    expect(localThis.result).toContain('package version must change');
+  });
+
+  it('accepts a bumped version on a tooling-only branch', () => {
+    const localThis = { result: undefined };
+
+    localThis.result = withFixture((root) => {
+      writeFileSync(root + '/package.json', '{ "name": "fixture", "version": "1.2.4" }\n');
+      writeFileSync(root + '/CHANGELOG.md', '## [1.2.4]\n\n- Tooling.\n');
+      writeFileSync(root + '/base-package.json', '{ "name": "fixture", "version": "1.2.3" }\n');
+      const gitPath = root + '/git';
+      writeFileSync(
+        gitPath,
+        `#!/usr/bin/env sh
+case "$1" in
+  merge-base) printf '%s\\n' base-ref ;;
   show) cat "$BASE_PACKAGE" ;;
   *) exit 1 ;;
 esac

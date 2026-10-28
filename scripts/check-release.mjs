@@ -1,52 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { isDeepStrictEqual } from 'node:util';
 import semver from 'semver';
-
-const releaseTriggerRootFiles = new Set([
-  'package.json',
-  'tsconfig.json',
-  'manifest.json',
-  'jzb.js',
-  'panel.js',
-  'devtools.js',
-  'panel.html',
-  'panel.css',
-  'devtools.html'
-]);
-const packageJsonToolingFields = new Set(['devDependencies', 'overrides']);
-const runtimeDependencyFields = new Set([
-  'dependencies',
-  'optionalDependencies',
-  'peerDependencies'
-]);
-
-function hasRuntimeDependencies(packageJson) {
-  return [...runtimeDependencyFields].some(
-    (field) => Object.keys(packageJson[field] ?? {}).length > 0
-  );
-}
-
-function isToolingOnlyPackageChange(basePackage, currentPackage) {
-  if (
-    !basePackage ||
-    !currentPackage ||
-    hasRuntimeDependencies(basePackage) ||
-    hasRuntimeDependencies(currentPackage)
-  ) {
-    return false;
-  }
-
-  const withoutToolingFields = (packageJson) => Object.fromEntries(
-    Object.entries(packageJson).filter(([field]) => !packageJsonToolingFields.has(field))
-  );
-
-  return isDeepStrictEqual(
-    withoutToolingFields(basePackage),
-    withoutToolingFields(currentPackage)
-  );
-}
 
 export function extractChangelogNotes(changelog, version) {
   const header = `## [${version}]`;
@@ -70,16 +25,6 @@ export function extractChangelogNotes(changelog, version) {
   }
 
   return notes.join('\n');
-}
-
-export function requiresRelease(changedFiles, basePackage, currentPackage) {
-  return changedFiles.some(
-    (file) => (
-      file === 'package.json'
-        ? !isToolingOnlyPackageChange(basePackage, currentPackage)
-        : releaseTriggerRootFiles.has(file) || file.startsWith('src/')
-    )
-  );
 }
 
 export function validateRelease(baseVersion, currentVersion, changelog) {
@@ -132,23 +77,10 @@ function runReleaseGate(baseRef) {
     ['merge-base', baseRef, 'HEAD'],
     { encoding: 'utf8' }
   ).trim();
-  const changedFiles = execFileSync(
-    'git',
-    ['diff', '--name-only', `${mergeBase}..HEAD`],
-    { encoding: 'utf8' }
-  )
-    .trim()
-    .split('\n')
-    .filter(Boolean);
-
   const basePackage = JSON.parse(
     execFileSync('git', ['show', `${mergeBase}:package.json`], { encoding: 'utf8' })
   );
   const currentPackage = JSON.parse(readFileSync('package.json', 'utf8'));
-
-  if (!requiresRelease(changedFiles, basePackage, currentPackage)) {
-    return;
-  }
 
   validateRelease(
     basePackage.version,

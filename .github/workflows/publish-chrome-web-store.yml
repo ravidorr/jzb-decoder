@@ -1,0 +1,188 @@
+name: Publish Chrome Web Store
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    # Decides whether the merged pull request changed anything the extension ships.
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    name: Detect shipped changes
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.should-publish.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Fetch the pull request head
+        run: git fetch --no-tags origin "refs/pull/${{ github.event.pull_request.number }}/head"
+      - id: should-publish
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/should-publish.mjs
+
+  publish:
+    needs: changes
+    if: needs.changes.outputs.publish == 'true'
+    name: Publish Chrome Web Store release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    # Runs never overlap. GitHub keeps only the newest pending run, so when several
+    # merges queue up the older pending runs are dropped. That is intended: the last
+    # run builds the latest main, which contains every earlier change and the
+    # highest version, and each upload would cancel the previous pending submission.
+    concurrency:
+      group: chrome-web-store-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check-version
+      - run: npm run package
+      - name: Verify package contents
+        run: |
+          test -f dist/jzb-decoder.zip
+          test -f dist/jzb-decoder/manifest.json
+          unzip -l dist/jzb-decoder.zip | grep -q 'manifest.json'
+          unzip -l dist/jzb-decoder.zip | grep -q 'icons/icon128.png'
+          unzip -l dist/jzb-decoder.zip | grep -q 'jzb.js'
+          bash scripts/verify-package.sh
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+      - id: version
+        name: Skip when the store already has this version or newer
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+        run: node scripts/check-chrome-web-store-version.mjs
+      - name: Supersede active Chrome Web Store submission
+        if: steps.version.outputs.publish == 'true'
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+        run: |
+          set -euo pipefail
+          item_name="publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}"
+          if ! curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer ${ACCESS_TOKEN}" \
+            "https://chromewebstore.googleapis.com/v2/${item_name}:fetchStatus" \
+            --output item-status.json; then
+            echo "Chrome Web Store fetchStatus failed:"
+            cat item-status.json
+            exit 1
+          fi
+          submission_state="$(jq -r '.submittedItemRevisionStatus.state // empty' item-status.json)"
+          case "${submission_state}" in
+            PENDING_REVIEW|STAGED)
+              if ! curl --fail-with-body --silent --show-error --request POST \
+                --header "Authorization: Bearer ${ACCESS_TOKEN}" \
+                "https://chromewebstore.googleapis.com/v2/${item_name}:cancelSubmission" \
+                --output cancel.json; then
+                echo "Chrome Web Store cancelSubmission failed:"
+                cat cancel.json
+                exit 1
+              fi
+              ;;
+            ""|PUBLISHED|PUBLISHED_TO_TESTERS|REJECTED|CANCELLED)
+              ;;
+            *)
+              echo "Unexpected Chrome Web Store submitted revision state: ${submission_state}"
+              cat item-status.json
+              exit 1
+              ;;
+          esac
+      - name: Upload package
+        if: steps.version.outputs.publish == 'true'
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+        run: |
+          set -euo pipefail
+          item_name="publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}"
+          if ! curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: Bearer ${ACCESS_TOKEN}" \
+            --upload-file dist/jzb-decoder.zip \
+            "https://chromewebstore.googleapis.com/upload/v2/${item_name}:upload" \
+            --output upload.json; then
+            echo "Chrome Web Store upload request failed:"
+            cat upload.json
+            exit 1
+          fi
+          upload_state="$(jq -r '.uploadState // empty' upload.json)"
+          if [ "${upload_state}" = "SUCCEEDED" ]; then
+            exit 0
+          fi
+          if [ "${upload_state}" != "IN_PROGRESS" ]; then
+            echo "Unexpected Chrome Web Store upload state: ${upload_state}"
+            cat upload.json
+            exit 1
+          fi
+          for attempt in $(seq 1 30); do
+            sleep 10
+            if ! curl --fail-with-body --silent --show-error \
+              --header "Authorization: Bearer ${ACCESS_TOKEN}" \
+              "https://chromewebstore.googleapis.com/v2/${item_name}:fetchStatus" \
+              --output upload-status.json; then
+              echo "Chrome Web Store fetchStatus failed:"
+              cat upload-status.json
+              exit 1
+            fi
+            upload_state="$(jq -r '.lastAsyncUploadState // empty' upload-status.json)"
+            if [ "${upload_state}" = "SUCCEEDED" ]; then
+              exit 0
+            fi
+            if [ "${upload_state}" != "IN_PROGRESS" ]; then
+              echo "Unexpected Chrome Web Store upload state: ${upload_state}"
+              cat upload-status.json
+              exit 1
+            fi
+          done
+          echo "Chrome Web Store upload did not finish within five minutes."
+          exit 1
+      - name: Submit release for review and publication
+        if: steps.version.outputs.publish == 'true'
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+        run: |
+          set -euo pipefail
+          item_name="publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}"
+          if ! curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: Bearer ${ACCESS_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data '{"publishType":"DEFAULT_PUBLISH","skipReview":false,"blockOnWarnings":true}' \
+            "https://chromewebstore.googleapis.com/v2/${item_name}:publish" \
+            --output publish.json; then
+            echo "Chrome Web Store publish request failed:"
+            cat publish.json
+            exit 1
+          fi
+          cat publish.json
