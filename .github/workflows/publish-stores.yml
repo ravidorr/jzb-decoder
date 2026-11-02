@@ -1,7 +1,11 @@
 name: Publish stores
 
 on:
-  pull_request:
+  # pull_request_target, not pull_request: runs for merged pull requests from forks get secrets and an OIDC token
+  # only this way. It is safe here because the workflow file always comes from main, the jobs run only after the
+  # merge, and they check out the merge commit or main, never unmerged pull request code. The pull request head is
+  # fetched only so that scripts/should-publish.mjs can diff file names and read manifest.json.
+  pull_request_target:
     types: [closed]
     branches: [main]
 
