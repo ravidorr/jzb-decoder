@@ -187,32 +187,8 @@ jobs:
           fi
           cat publish.json
 
-  lint-firefox:
-    # Runs without credentials: web-ext is fetched through npx, so keep it away from the AMO secrets.
-    needs: changes
-    if: needs.changes.outputs.publish == 'true'
-    name: Lint Firefox package
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          # Latest main, not this run's merge commit: a delayed run must never publish an older package
-          # after a newer merge, and the store version checks stop a repeat submission.
-          ref: main
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run package
-      - name: Lint with web-ext
-        run: npx --yes web-ext@10.8.0 lint --source-dir dist/jzb-decoder
-
   publish-firefox:
-    needs: [changes, lint-firefox]
+    needs: changes
     if: needs.changes.outputs.publish == 'true'
     name: Publish Firefox Add-ons release
     runs-on: ubuntu-latest
@@ -238,6 +214,12 @@ jobs:
       - run: npm run package
       - name: Verify package contents
         run: bash scripts/verify-package.sh
+      # Lints a copy of the package that this same job then submits. The AMO secrets are only passed to the
+      # submit step below, never to this one.
+      - name: Lint with web-ext
+        run: |
+          cp -R dist/jzb-decoder "${RUNNER_TEMP}/web-ext-source"
+          npx --yes web-ext@10.8.0 lint --source-dir "${RUNNER_TEMP}/web-ext-source"
       - name: Submit to Firefox Add-ons
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}

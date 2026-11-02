@@ -16,9 +16,9 @@ pull requests are skipped.
 The job:
 
 1. Runs `npm ci`, `npm run check-version`, `npm run package`, and `scripts/verify-package.sh`.
-2. A separate `lint-firefox` job, which has no access to the AMO credentials, runs `web-ext lint` (pinned to
-   `web-ext@10.8.0`, run through `npx`) on the unpacked package. Lint errors stop the publish job before the
-   upload; warnings do not.
+2. Runs `web-ext lint` (pinned to `web-ext@10.8.0`, run through `npx`) on a copy of the unpacked package that the
+   same job then submits. Lint errors stop the job before the upload; warnings do not. The AMO secrets are passed
+   only to the submit step, not to the lint step.
 3. Runs `scripts/publish-firefox-addons.mjs`, which lists every SemVer-valid AMO version of the add-on
    (including versions awaiting review, rejected, or unlisted; other version strings are reported with a
    warning). If one of them is the manifest version or newer, it prints a notice (a warning when AMO is ahead of
