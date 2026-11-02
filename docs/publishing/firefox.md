@@ -16,12 +16,16 @@ pull requests are skipped.
 The job:
 
 1. Runs `npm ci`, `npm run check-version`, `npm run package`, and `scripts/verify-package.sh`.
-2. Runs `web-ext lint` on the unpacked package, so AMO validation problems fail the job before the upload.
-3. Runs `scripts/publish-firefox-addons.mjs`, which lists every AMO version of the add-on (including versions
-   awaiting review, rejected, or unlisted). If one of them is the manifest version or newer, it prints a notice
-   and exits successfully without submitting.
+2. A separate `lint-firefox` job, which has no access to the AMO credentials, runs `web-ext lint` (pinned to
+   `web-ext@10.8.0`, run through `npx`) on the unpacked package. Lint errors stop the publish job before the
+   upload; warnings do not.
+3. Runs `scripts/publish-firefox-addons.mjs`, which lists every SemVer-valid AMO version of the add-on
+   (including versions awaiting review, rejected, or unlisted; other version strings are reported with a
+   warning). If one of them is the manifest version or newer, it prints a notice (a warning when AMO is ahead of
+   the repository) and exits successfully without submitting.
 4. Otherwise it uploads `dist/jzb-decoder.zip` to the `listed` channel, waits for AMO validation, and creates
-   the version with the matching `CHANGELOG.md` section as the release notes.
+   the version with the matching `CHANGELOG.md` section as the release notes. The job fails instead of submitting
+   when that section is empty.
 
 A concurrency group (`firefox-addons-publish`) serializes runs. A failure here does not affect the Chrome or
 Edge jobs. API error bodies are printed in the logs. Source code upload is not needed: the package is plain,
@@ -43,8 +47,8 @@ manual approval before each submission, add required reviewers to that environme
 1. Sign in to the [Developer Hub](https://addons.mozilla.org/developers/) with the account that owns the add-on.
 2. Open [Manage API Keys](https://addons.mozilla.org/developers/addon/api/key/) and generate credentials.
 3. Add the issuer and secret as the environment secrets above. The secret is shown only once.
-4. Make sure the listing already has a name, summary, license, and categories. The API creates new versions
-   only, and cannot set those fields.
+4. Make sure the listing already has a name, summary, license, and categories. This automation only
+   creates new versions; it does not set or change listing metadata.
 
 ### Manual fallback
 

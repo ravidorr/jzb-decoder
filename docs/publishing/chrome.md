@@ -43,7 +43,8 @@ can trail `manifest.json`. The next pull request that changes the extension subm
 ## Required repository variables
 
 Set these under Settings, Secrets and variables, Actions, Variables. Use repository variables, not environment
-variables: the workflow reads `vars.*` without declaring an `environment:`.
+variables: the Chrome job reads `vars.*` without declaring an `environment:`. The Firefox and Edge jobs use
+environments instead.
 
 | Variable | Value |
 | --- | --- |

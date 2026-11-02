@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import semver from 'semver';
 
 import { extractChangelogNotes } from './check-release.mjs';
+import { missingVariables, parseJsonBody, reportFatalError, storeFetch } from './store-request.mjs';
 
 const apiBaseUrl = 'https://addons.mozilla.org/api/v5/addons';
 const defaultManifestPath = 'dist/jzb-decoder/manifest.json';
@@ -31,17 +32,16 @@ export function createJwt({ issuer, secret, now = Date.now() }) {
 }
 
 async function amoRequest(url, { credentials, ...options }) {
-  const response = await fetch(url, {
+  if (!url.startsWith(`${apiBaseUrl}/`)) {
+    throw new Error(`Refusing to send AMO credentials to unexpected URL ${url}`);
+  }
+
+  const { body } = await storeFetch('AMO', url, {
     ...options,
     headers: { ...options.headers, Authorization: `JWT ${createJwt(credentials)}` }
   });
-  const body = await response.text();
 
-  if (!response.ok) {
-    throw new Error(`AMO request ${options.method ?? 'GET'} ${url} failed (${response.status}): ${body}`);
-  }
-
-  return JSON.parse(body);
+  return parseJsonBody('AMO', url, body);
 }
 
 export function evaluateVersion(manifestVersion, storeVersions) {
@@ -50,10 +50,12 @@ export function evaluateVersion(manifestVersion, storeVersions) {
   }
 
   const validVersions = storeVersions.filter((version) => semver.valid(version)).sort(semver.rcompare);
+  const ignoredVersions = storeVersions.filter((version) => !semver.valid(version));
 
   return {
     publish: validVersions.length === 0 || semver.gt(manifestVersion, validVersions[0]),
-    storeVersions: validVersions
+    storeVersions: validVersions,
+    ignoredVersions
   };
 }
 
@@ -65,6 +67,10 @@ export async function fetchAmoVersions({ credentials, addonId }) {
   while (url) {
     const page = await amoRequest(url, { credentials });
 
+    if (!Array.isArray(page.results)) {
+      throw new Error(`AMO versions response has no results list: ${JSON.stringify(page)}`);
+    }
+
     versions.push(...page.results.map((entry) => entry.version));
     url = page.next;
   }
@@ -73,8 +79,10 @@ export async function fetchAmoVersions({ credentials, addonId }) {
 }
 
 async function waitForUpload({ credentials, uuid, sleep }) {
+  let upload;
+
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
-    const upload = await amoRequest(`${apiBaseUrl}/upload/${uuid}/`, { credentials });
+    upload = await amoRequest(`${apiBaseUrl}/upload/${uuid}/`, { credentials });
 
     if (upload.processed) {
       if (!upload.valid) {
@@ -87,7 +95,9 @@ async function waitForUpload({ credentials, uuid, sleep }) {
     await sleep(pollIntervalMs);
   }
 
-  throw new Error('AMO did not finish processing the upload within five minutes.');
+  throw new Error(
+    `AMO did not finish processing upload ${uuid} within ${(pollIntervalMs * pollAttempts) / 60000} minutes: ${JSON.stringify(upload)}`
+  );
 }
 
 export async function submitVersion({ credentials, addonId, packagePath, releaseNotes, sleep }) {
@@ -97,6 +107,10 @@ export async function submitVersion({ credentials, addonId, packagePath, release
   form.append('upload', new Blob([readFileSync(packagePath)], { type: 'application/zip' }), 'jzb-decoder.zip');
 
   const upload = await amoRequest(`${apiBaseUrl}/upload/`, { credentials, method: 'POST', body: form });
+
+  if (!upload.uuid) {
+    throw new Error(`AMO upload response has no uuid: ${JSON.stringify(upload)}`);
+  }
 
   await waitForUpload({ credentials, uuid: upload.uuid, sleep });
 
@@ -117,21 +131,34 @@ export async function runPublish({
   sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
 }) {
   const manifestVersion = JSON.parse(readFileSync(manifestPath, 'utf8')).version;
-  const { publish, storeVersions } = evaluateVersion(
+  const { publish, storeVersions, ignoredVersions } = evaluateVersion(
     manifestVersion,
     await fetchAmoVersions({ credentials, addonId })
   );
   const store = storeVersions.length > 0 ? storeVersions.join(', ') : 'none';
 
-  if (!publish) {
+  if (ignoredVersions.length > 0) {
     process.stdout.write(
-      `::notice::Skipping Firefox Add-ons publish: ${manifestVersion} is not higher than AMO's ${store}.\n`
+      `::warning::Ignoring AMO versions that are not valid SemVer: ${ignoredVersions.join(', ')}.\n`
+    );
+  }
+
+  if (!publish) {
+    // A store version below the manifest's cannot happen here; a higher one means AMO is ahead of this repository.
+    const level = storeVersions[0] === manifestVersion ? 'notice' : 'warning';
+
+    process.stdout.write(
+      `::${level}::Skipping Firefox Add-ons publish: ${manifestVersion} is not higher than AMO's highest version ${storeVersions[0]}.\n`
     );
 
     return { published: false, manifestVersion, storeVersions };
   }
 
   const releaseNotes = extractChangelogNotes(readFileSync(changelogPath, 'utf8'), manifestVersion).trim();
+
+  if (!releaseNotes) {
+    throw new Error(`${changelogPath} has no notes for ${manifestVersion}; refusing to submit to AMO.`);
+  }
 
   process.stdout.write(`Publishing ${manifestVersion} to Firefox Add-ons (AMO has: ${store}).\n`);
 
@@ -142,23 +169,22 @@ export async function runPublish({
   return { published: true, manifestVersion, storeVersions };
 }
 
-async function runCli() {
-  const { AMO_JWT_ISSUER, AMO_JWT_SECRET, ADDON_ID, MANIFEST_PATH } = process.env;
+export async function runCli() {
+  const { AMO_JWT_ISSUER, AMO_JWT_SECRET, ADDON_ID, MANIFEST_PATH, PACKAGE_PATH } = process.env;
+  const missing = missingVariables(['AMO_JWT_ISSUER', 'AMO_JWT_SECRET', 'ADDON_ID']);
 
-  if (!AMO_JWT_ISSUER || !AMO_JWT_SECRET || !ADDON_ID) {
-    throw new Error('AMO_JWT_ISSUER, AMO_JWT_SECRET, and ADDON_ID are required');
+  if (missing.length > 0) {
+    throw new Error(`${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} required`);
   }
 
   await runPublish({
     credentials: { issuer: AMO_JWT_ISSUER, secret: AMO_JWT_SECRET },
     addonId: ADDON_ID,
-    manifestPath: MANIFEST_PATH
+    manifestPath: MANIFEST_PATH || undefined,
+    packagePath: PACKAGE_PATH || undefined
   });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runCli().catch((error) => {
-    console.error(error.message);
-    process.exit(1);
-  });
+  runCli().catch(reportFatalError);
 }

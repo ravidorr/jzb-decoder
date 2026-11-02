@@ -22,8 +22,10 @@ The job runs `npm ci`, `npm run check-version`, `npm run package`, and `scripts/
 
 The Publish API cannot read the store version or submission state, so the store decides whether there is
 anything to submit. If the publish call fails with `InProgressSubmission` (a submission is already in review) or
-`NoModulesUpdated` (the store already has this package), the script prints a notice and exits successfully, so a
-pending review is never replaced. Any other failure fails the job and prints the operation details. A failure
+`NoModulesUpdated` (the store already has this package), the script prints a warning and exits successfully, so a
+pending review is never replaced. The package has already been uploaded to the draft by then, so the draft can
+change even when nothing is submitted. If the upload step itself fails, the job fails. Any other failure also fails
+the job and prints the operation details. A failure
 here does not affect the Chrome or Firefox jobs. A concurrency group (`edge-addons-publish`) serializes runs.
 
 ### Required configuration
@@ -38,8 +40,7 @@ approval before each submission, add required reviewers to that environment.
 | `EDGE_PRODUCT_ID` | Environment variable | The product ID (a GUID) of the extension |
 
 The product ID is not the store ID (`ohnhdckjblabclpemdpnccffjgkdibid`). Find it in Partner Center under
-**Microsoft Edge** > **Overview**, on the extension overview page, or in the address bar between `microsoftedge/`
-and `/packages`.
+**Microsoft Edge** > **Overview**, on the extension overview page, in the **Extension identity** section.
 
 ### One-time setup
 

@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { publishDraft, runPublish, uploadPackage } from '../scripts/publish-edge-addons.mjs';
+import { publishDraft, runCli, runPublish, uploadPackage } from '../scripts/publish-edge-addons.mjs';
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const scriptPath = join(testDirectory, '..', 'scripts', 'publish-edge-addons.mjs');
@@ -19,6 +19,10 @@ function accepted(operationId = 'op-1') {
     headers: { get: () => `/operations/${operationId}` },
     text: () => Promise.resolve('')
   };
+}
+
+function acceptedAt(location) {
+  return { ok: true, status: 202, headers: { get: () => location }, text: () => Promise.resolve('') };
 }
 
 function operation(body, status = 200) {
@@ -54,6 +58,8 @@ async function withFixture(run) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -67,7 +73,9 @@ describe('uploadPackage', () => {
         operation({ status: 'Succeeded' })
       );
 
-      await uploadPackage({ credentials, productId: 'prod', packagePath, sleep });
+      await expect(uploadPackage({ credentials, productId: 'prod', packagePath, sleep })).resolves.toEqual({
+        status: 'Succeeded'
+      });
 
       expect(fetchMock.mock.calls[0][0]).toContain('/prod/submissions/draft/package');
       expect(fetchMock.mock.calls[0][1].headers).toMatchObject({
@@ -79,13 +87,14 @@ describe('uploadPackage', () => {
     });
   });
 
-  it('fails with the operation details when processing fails', async () => {
+  it('returns a failed operation for the caller to judge', async () => {
     await withFixture(async ({ packagePath }) => {
       mockFetch(accepted(), operation({ status: 'Failed', errorCode: 'BadPackage' }));
 
-      await expect(uploadPackage({ credentials, productId: 'p', packagePath, sleep })).rejects.toThrow(
-        'package upload failed: {"status":"Failed","errorCode":"BadPackage"}'
-      );
+      await expect(uploadPackage({ credentials, productId: 'p', packagePath, sleep })).resolves.toEqual({
+        status: 'Failed',
+        errorCode: 'BadPackage'
+      });
     });
   });
 
@@ -109,16 +118,62 @@ describe('uploadPackage', () => {
     });
   });
 
-  it('gives up when processing never finishes', async () => {
+  it.each([
+    ['https://api.example/v1/products/p/submissions/draft/package/operations/abc/', 'abc'],
+    ['/operations/abc', 'abc']
+  ])('reads the operation ID from the Location header %s', async (location, id) => {
     await withFixture(async ({ packagePath }) => {
-      const fetchMock = vi.fn().mockResolvedValue(operation({ status: 'InProgress' }));
+      const fetchMock = mockFetch(acceptedAt(location), operation({ status: 'Succeeded' }));
 
-      fetchMock.mockResolvedValueOnce(accepted());
-      vi.stubGlobal('fetch', fetchMock);
+      await uploadPackage({ credentials, productId: 'p', packagePath, sleep });
+
+      expect(fetchMock.mock.calls[1][0]).toMatch(new RegExp(`/draft/package/operations/${id}$`));
+    });
+  });
+
+  it('rejects a Location header with no usable ID', async () => {
+    await withFixture(async ({ packagePath }) => {
+      mockFetch(acceptedAt('/'));
 
       await expect(uploadPackage({ credentials, productId: 'p', packagePath, sleep })).rejects.toThrow(
-        'did not finish the operation'
+        'unusable Location header: /'
       );
+    });
+  });
+
+  it('names the request when a status body is not JSON', async () => {
+    await withFixture(async ({ packagePath }) => {
+      mockFetch(accepted(), { ok: true, status: 200, headers: { get: () => null }, text: () => Promise.resolve('<html>') });
+
+      await expect(uploadPackage({ credentials, productId: 'p', packagePath, sleep })).rejects.toThrow(
+        'not JSON: <html>'
+      );
+    });
+  });
+
+  it('explains network failures', async () => {
+    await withFixture(async ({ packagePath }) => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } })));
+
+      await expect(uploadPackage({ credentials, productId: 'p', packagePath, sleep })).rejects.toThrow(
+        'could not complete: ECONNRESET'
+      );
+    });
+  });
+
+  it('gives up after five minutes of polling and names the operation', async () => {
+    await withFixture(async ({ packagePath }) => {
+      const sleeper = vi.fn().mockResolvedValue();
+      const fetchMock = vi.fn().mockResolvedValue(operation({ status: 'InProgress' }));
+
+      fetchMock.mockResolvedValueOnce(accepted('slow'));
+      vi.stubGlobal('fetch', fetchMock);
+
+      await expect(
+        uploadPackage({ credentials, productId: 'p', packagePath, sleep: sleeper })
+      ).rejects.toThrow('operations/slow did not finish within 5 minutes');
+      expect(fetchMock).toHaveBeenCalledTimes(61);
+      expect(sleeper).toHaveBeenCalledWith(5000);
     });
   });
 });
@@ -158,7 +213,7 @@ describe('runPublish', () => {
   it.each([
     ['InProgressSubmission', 'a submission is already in review'],
     ['NoModulesUpdated', 'the store already has this package']
-  ])('skips with a notice on %s', async (errorCode, reason) => {
+  ])('warns and skips on %s at the publish step', async (errorCode, reason) => {
     await withFixture(async (paths) => {
       vi.spyOn(process.stdout, 'write').mockReturnValue(true);
       mockFetch(accepted(), operation({ status: 'Succeeded' }), accepted(), operation({ status: 'Failed', errorCode }));
@@ -166,9 +221,52 @@ describe('runPublish', () => {
       const result = await runPublish({ credentials, productId: 'p', ...paths, sleep });
 
       expect(result.published).toBe(false);
-      expect(process.stdout.write).toHaveBeenCalledWith(
-        `::notice::Skipping Microsoft Edge Add-ons publish of 1.3.0: ${reason}.\n`
+      expect(process.stdout.write).toHaveBeenCalledWith(expect.stringContaining(`::warning::Microsoft Edge Add-ons did not receive 1.3.0: ${reason}.`));
+    });
+  });
+
+  it('skips without publishing when the upload reports a submission in review', async () => {
+    await withFixture(async (paths) => {
+      vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+      const fetchMock = mockFetch(accepted(), operation({ status: 'Failed', errorCode: 'InProgressSubmission' }));
+      const result = await runPublish({ credentials, productId: 'p', ...paths, sleep });
+
+      expect(result.published).toBe(false);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('fails when the upload fails for any other reason', async () => {
+    await withFixture(async (paths) => {
+      mockFetch(accepted(), operation({ status: 'Failed', errorCode: 'BadPackage' }));
+
+      await expect(runPublish({ credentials, productId: 'p', ...paths, sleep })).rejects.toThrow(
+        'package upload failed: {"status":"Failed","errorCode":"BadPackage"}'
       );
+    });
+  });
+
+  it('fails when the publish operation has no error code', async () => {
+    await withFixture(async (paths) => {
+      mockFetch(accepted(), operation({ status: 'Succeeded' }), accepted(), operation({ status: 'Failed' }));
+
+      await expect(runPublish({ credentials, productId: 'p', ...paths, sleep })).rejects.toThrow(
+        'publish failed: {"status":"Failed"}'
+      );
+    });
+  });
+
+  it('fails before any request when the package is missing', async () => {
+    await withFixture(async ({ manifestPath }) => {
+      const fetchMock = vi.fn();
+
+      vi.stubGlobal('fetch', fetchMock);
+
+      await expect(
+        runPublish({ credentials, productId: 'p', manifestPath, packagePath: '/nonexistent/x.zip', sleep })
+      ).rejects.toThrow('ENOENT');
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 
@@ -210,8 +308,45 @@ describe('runPublish', () => {
 });
 
 describe('publish-edge-addons CLI', () => {
-  it('requires the Partner Center credentials and product ID', () => {
-    const localThis = { stderr: undefined };
+  const variables = ['EDGE_CLIENT_ID', 'EDGE_API_KEY', 'EDGE_PRODUCT_ID'];
+
+  function withEnvironment(values, run) {
+    return withFixture(async (paths) => {
+      for (const [name, value] of Object.entries({ ...{ EDGE_CLIENT_ID: 'c', EDGE_API_KEY: 'k', EDGE_PRODUCT_ID: 'p', MANIFEST_PATH: '', PACKAGE_PATH: '' }, ...values })) {
+        vi.stubEnv(name, value);
+      }
+
+      await run(paths);
+    });
+  }
+
+  it.each(variables)('requires %s', async (name) => {
+    await withEnvironment({ [name]: '' }, async () => {
+      await expect(runCli()).rejects.toThrow(`${name} is required`);
+    });
+  });
+
+  it('lists every missing variable', async () => {
+    await withEnvironment({ EDGE_CLIENT_ID: '', EDGE_API_KEY: '' }, async () => {
+      await expect(runCli()).rejects.toThrow('EDGE_CLIENT_ID, EDGE_API_KEY are required');
+    });
+  });
+
+  it('runs the publish with the manifest path from the environment', async () => {
+    await withEnvironment({}, async ({ manifestPath, packagePath }) => {
+      vi.stubEnv('MANIFEST_PATH', manifestPath);
+      vi.stubEnv('PACKAGE_PATH', packagePath);
+      vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+      mockFetch(accepted(), operation({ status: 'Failed', errorCode: 'NoModulesUpdated' }));
+
+      await runCli();
+
+      expect(process.stdout.write).toHaveBeenCalledWith(expect.stringContaining('did not receive 1.3.0'));
+    });
+  });
+
+  it('exits non-zero and annotates the failure when run as a script', () => {
+    const localThis = { error: undefined };
 
     try {
       execFileSync(process.execPath, [scriptPath], {
@@ -220,9 +355,12 @@ describe('publish-edge-addons CLI', () => {
         env: { ...process.env, EDGE_CLIENT_ID: '', EDGE_API_KEY: '', EDGE_PRODUCT_ID: '' }
       });
     } catch (error) {
-      localThis.stderr = error.stderr.toString();
+      localThis.error = error;
     }
 
-    expect(localThis.stderr).toContain('EDGE_CLIENT_ID, EDGE_API_KEY, and EDGE_PRODUCT_ID are required');
+    expect(localThis.error.status).toBe(1);
+    expect(localThis.error.stderr.toString()).toContain(
+      '::error::EDGE_CLIENT_ID, EDGE_API_KEY, EDGE_PRODUCT_ID are required'
+    );
   });
 });

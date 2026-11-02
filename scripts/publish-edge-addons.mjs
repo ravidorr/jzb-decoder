@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
+import { missingVariables, parseJsonBody, reportFatalError, storeFetch } from './store-request.mjs';
+
 const apiBaseUrl = 'https://api.addons.microsoftedge.microsoft.com/v1/products';
 const defaultManifestPath = 'dist/jzb-decoder/manifest.json';
 const defaultPackagePath = 'dist/jzb-decoder.zip';
@@ -17,18 +19,11 @@ function authHeaders({ clientId, apiKey }) {
   return { Authorization: `ApiKey ${apiKey}`, 'X-ClientID': clientId };
 }
 
-async function edgeRequest(url, { credentials, headers, ...options }) {
-  const response = await fetch(url, {
+function edgeRequest(url, { credentials, headers, ...options }) {
+  return storeFetch('Edge Add-ons', url, {
     ...options,
     headers: { ...authHeaders(credentials), ...headers }
   });
-  const body = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`Edge Add-ons request ${options.method ?? 'GET'} ${url} failed (${response.status}): ${body}`);
-  }
-
-  return { body, response };
 }
 
 function operationIdFrom(response) {
@@ -38,13 +33,22 @@ function operationIdFrom(response) {
     throw new Error('Edge Add-ons did not return an operation ID in the Location header.');
   }
 
-  return location.split('/').pop();
+  const operationId = location.split('/').filter(Boolean).pop();
+
+  if (!operationId) {
+    throw new Error(`Edge Add-ons returned an unusable Location header: ${location}`);
+  }
+
+  return operationId;
 }
 
 async function waitForOperation({ url, credentials, sleep }) {
+  let operation;
+
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
     const { body } = await edgeRequest(url, { credentials });
-    const operation = JSON.parse(body);
+
+    operation = parseJsonBody('Edge Add-ons', url, body);
 
     if (operation.status !== 'InProgress') {
       return operation;
@@ -53,7 +57,9 @@ async function waitForOperation({ url, credentials, sleep }) {
     await sleep(pollIntervalMs);
   }
 
-  throw new Error('Edge Add-ons did not finish the operation within five minutes.');
+  throw new Error(
+    `Edge Add-ons operation ${url} did not finish within ${(pollIntervalMs * pollAttempts) / 60000} minutes: ${JSON.stringify(operation)}`
+  );
 }
 
 export async function uploadPackage({ credentials, productId, packagePath, sleep }) {
@@ -64,15 +70,12 @@ export async function uploadPackage({ credentials, productId, packagePath, sleep
     headers: { 'Content-Type': 'application/zip' },
     body: readFileSync(packagePath)
   });
-  const operation = await waitForOperation({
+
+  return waitForOperation({
     url: `${base}/operations/${operationIdFrom(response)}`,
     credentials,
     sleep
   });
-
-  if (operation.status !== 'Succeeded') {
-    throw new Error(`Edge Add-ons package upload failed: ${JSON.stringify(operation)}`);
-  }
 }
 
 export async function publishDraft({ credentials, productId, notes, sleep }) {
@@ -100,9 +103,13 @@ export async function runPublish({
 }) {
   const manifestVersion = JSON.parse(readFileSync(manifestPath, 'utf8')).version;
 
-  // The Publish API cannot read the store version, so the store itself decides: it answers the
+  // The Publish API cannot read the store version, so the store decides: it answers the upload or
   // publish call with InProgressSubmission or NoModulesUpdated when there is nothing to submit.
-  await uploadPackage({ credentials, productId, packagePath, sleep });
+  const upload = await uploadPackage({ credentials, productId, packagePath, sleep });
+
+  if (upload.status !== 'Succeeded') {
+    return finish(upload, manifestVersion, 'package upload');
+  }
 
   const operation = await publishDraft({
     credentials,
@@ -111,8 +118,12 @@ export async function runPublish({
     sleep
   });
 
-  if (operation.status === 'Succeeded') {
-    process.stdout.write(`Submitted version ${manifestVersion} to Microsoft Edge Add-ons: ${operation.message}\n`);
+  return finish(operation, manifestVersion, 'publish');
+}
+
+function finish(operation, manifestVersion, step) {
+  if (operation.status === 'Succeeded' && step === 'publish') {
+    process.stdout.write(`Submitted version ${manifestVersion} to Microsoft Edge Add-ons: ${operation.message ?? 'no message'}\n`);
 
     return { published: true, manifestVersion };
   }
@@ -121,32 +132,31 @@ export async function runPublish({
 
   if (reason) {
     process.stdout.write(
-      `::notice::Skipping Microsoft Edge Add-ons publish of ${manifestVersion}: ${reason}.\n`
+      `::warning::Microsoft Edge Add-ons did not receive ${manifestVersion}: ${reason}. The next release that changes the extension submits the then-current version.\n`
     );
 
     return { published: false, manifestVersion };
   }
 
-  throw new Error(`Edge Add-ons publish failed: ${JSON.stringify(operation)}`);
+  throw new Error(`Edge Add-ons ${step} failed: ${JSON.stringify(operation)}`);
 }
 
-async function runCli() {
-  const { EDGE_CLIENT_ID, EDGE_API_KEY, EDGE_PRODUCT_ID, MANIFEST_PATH } = process.env;
+export async function runCli() {
+  const { EDGE_CLIENT_ID, EDGE_API_KEY, EDGE_PRODUCT_ID, MANIFEST_PATH, PACKAGE_PATH } = process.env;
+  const missing = missingVariables(['EDGE_CLIENT_ID', 'EDGE_API_KEY', 'EDGE_PRODUCT_ID']);
 
-  if (!EDGE_CLIENT_ID || !EDGE_API_KEY || !EDGE_PRODUCT_ID) {
-    throw new Error('EDGE_CLIENT_ID, EDGE_API_KEY, and EDGE_PRODUCT_ID are required');
+  if (missing.length > 0) {
+    throw new Error(`${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} required`);
   }
 
   await runPublish({
     credentials: { clientId: EDGE_CLIENT_ID, apiKey: EDGE_API_KEY },
     productId: EDGE_PRODUCT_ID,
-    manifestPath: MANIFEST_PATH
+    manifestPath: MANIFEST_PATH || undefined,
+    packagePath: PACKAGE_PATH || undefined
   });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runCli().catch((error) => {
-    console.error(error.message);
-    process.exit(1);
-  });
+  runCli().catch(reportFatalError);
 }
