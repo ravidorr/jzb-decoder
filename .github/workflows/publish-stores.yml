@@ -3,8 +3,8 @@ name: Publish stores
 on:
   # pull_request_target, not pull_request: runs for merged pull requests from forks get secrets and an OIDC token
   # only this way. It is safe here because the workflow file always comes from main, the jobs run only after the
-  # merge, and they check out the merge commit or main, never unmerged pull request code. The pull request head is
-  # fetched only so that scripts/should-publish.mjs can diff file names and read manifest.json.
+  # merge, and every job checks out main, never pull request code. The pull request head is fetched, not checked
+  # out, only so that scripts/should-publish.mjs can diff file names and read manifest.json.
   pull_request_target:
     types: [closed]
     branches: [main]
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: main
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: main
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc

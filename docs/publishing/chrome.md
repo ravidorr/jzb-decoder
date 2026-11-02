@@ -3,8 +3,8 @@
 Merging a pull request into `main` can submit the extension to the Chrome Web Store for review.
 `.github/workflows/publish-stores.yml` does this. Pull requests closed without merging do nothing,
 and the regular CI workflow is unchanged. The workflow uses the `pull_request_target` trigger so that merged pull
-requests from forks can publish too: it runs the workflow file from `main`, only after the merge, and never checks
-out unmerged pull request code.
+requests from forks can publish too: it runs the workflow file from `main`, only after the merge, and every job checks
+out `main`, never pull request code.
 
 The same workflow also submits to Firefox Add-ons and Microsoft Edge Add-ons, using the same `changes` job and
 package. Each store has its own job, so a failure in one does not block the others. See
