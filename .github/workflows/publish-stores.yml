@@ -23,6 +23,7 @@ jobs:
       (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
     name: Detect shipped changes
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       publish: ${{ steps.should-publish.outputs.publish || steps.dispatch.outputs.publish }}
       revision: ${{ steps.revision.outputs.sha }}
@@ -55,6 +56,7 @@ jobs:
     if: needs.changes.outputs.publish == 'true'
     name: Publish Chrome Web Store release
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
