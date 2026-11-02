@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-11-02
+
+### Added
+
+- Publish jobs for Firefox Add-ons (AMO) and Microsoft Edge Add-ons that run beside the Chrome Web Store job after a
+  pull request that changes shipped extension files is merged into `main`
+- `scripts/publish-firefox-addons.mjs` and `scripts/publish-edge-addons.mjs` with tests
+- Firefox and Edge publishing automation guides in `docs/publishing/firefox.md` and `docs/publishing/edge.md`
+
+### Changed
+
+- Renamed the Chrome Web Store workflow to `.github/workflows/publish-stores.yml`; the change detection job now
+  gates all three stores
+
 ## [1.2.4] - 2026-10-28
 
 ### Added

@@ -1,8 +1,12 @@
 # Automated Chrome Web Store publishing
 
 Merging a pull request into `main` can submit the extension to the Chrome Web Store for review.
-`.github/workflows/publish-chrome-web-store.yml` does this. Pull requests closed without merging do nothing,
+`.github/workflows/publish-stores.yml` does this. Pull requests closed without merging do nothing,
 and the regular CI workflow is unchanged.
+
+The same workflow also submits to Firefox Add-ons and Microsoft Edge Add-ons, using the same `changes` job and
+package. Each store has its own job, so a failure in one does not block the others. See
+[firefox.md](firefox.md) and [edge.md](edge.md).
 
 For the manual first-time listing steps, see the Chrome Web Store section of
 [README.md](../../README.md#chrome-web-store).
@@ -14,7 +18,7 @@ For the manual first-time listing steps, see the Chrome Web Store section of
    extension zip: `jzb.js`, `panel.*`, `devtools.*`, `icons/`, or `design-system/`. A change to `manifest.json`
    counts only when it changes more than the `version` field. Docs-only, test-only, and tooling-only pull
    requests are skipped with a notice and do not fail the workflow.
-2. The `publish` job checks out the merged code and runs `npm ci`, `npm run check-version`, and
+2. The `publish-chrome` job checks out the merged code and runs `npm ci`, `npm run check-version`, and
    `npm run package`, then verifies the package contents with `scripts/verify-package.sh`.
 3. It authenticates to Google Cloud with GitHub Actions OIDC and Workload Identity Federation. No long-lived
    credentials are stored.
@@ -27,7 +31,7 @@ For the manual first-time listing steps, see the Chrome Web Store section of
 7. The upload is submitted with default publishing and review enabled (`publishType: DEFAULT_PUBLISH`,
    `skipReview: false`, `blockOnWarnings: true`).
 
-The `publish` job has only `contents: read` and `id-token: write` permissions. A concurrency group serializes
+The `publish-chrome` job has only `contents: read` and `id-token: write` permissions. A concurrency group serializes
 submissions. If several merges queue up while a run is in progress, GitHub keeps only the newest pending run.
 That is intended: the last run builds the latest `main`, which includes the earlier changes and the highest
 version. API error bodies are printed in the workflow logs.

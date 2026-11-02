@@ -4,6 +4,52 @@ JZB Decoder ships as a Manifest V3 WebExtension. Upload `dist/jzb-decoder.zip` b
 
 For Chrome Web Store steps, see [README.md](../../README.md#chrome-web-store).
 
+## Automated publishing
+
+Merging a pull request into `main` submits the new version to
+[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/jzb-decoder/) for review. The
+`publish-firefox` job in `.github/workflows/publish-stores.yml` does this, next to the Chrome and Edge jobs.
+It runs only when the shared `changes` job finds that the pull request changed shipped extension files
+(`scripts/should-publish.mjs`; see [chrome.md](chrome.md#how-it-works)). Docs-only, test-only, and tooling-only
+pull requests are skipped.
+
+The job:
+
+1. Runs `npm ci`, `npm run check-version`, `npm run package`, and `scripts/verify-package.sh`.
+2. Runs `web-ext lint` on the unpacked package, so AMO validation problems fail the job before the upload.
+3. Runs `scripts/publish-firefox-addons.mjs`, which lists every AMO version of the add-on (including versions
+   awaiting review, rejected, or unlisted). If one of them is the manifest version or newer, it prints a notice
+   and exits successfully without submitting.
+4. Otherwise it uploads `dist/jzb-decoder.zip` to the `listed` channel, waits for AMO validation, and creates
+   the version with the matching `CHANGELOG.md` section as the release notes.
+
+A concurrency group (`firefox-addons-publish`) serializes runs. A failure here does not affect the Chrome or
+Edge jobs. API error bodies are printed in the logs. Source code upload is not needed: the package is plain,
+unminified JavaScript.
+
+### Required configuration
+
+The job uses the `firefox-addons` GitHub environment. Create it under Settings, Environments. To require a
+manual approval before each submission, add required reviewers to that environment.
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `AMO_JWT_ISSUER` | Environment secret | The JWT issuer (API key) from the AMO API keys page |
+| `AMO_JWT_SECRET` | Environment secret | The JWT secret from the same page |
+| `AMO_ADDON_ID` | Environment variable | `jzb-decoder@ravidorr.github.io` |
+
+### One-time setup
+
+1. Sign in to the [Developer Hub](https://addons.mozilla.org/developers/) with the account that owns the add-on.
+2. Open [Manage API Keys](https://addons.mozilla.org/developers/addon/api/key/) and generate credentials.
+3. Add the issuer and secret as the environment secrets above. The secret is shown only once.
+4. Make sure the listing already has a name, summary, license, and categories. The API creates new versions
+   only, and cannot set those fields.
+
+### Manual fallback
+
+If the job fails or is skipped, upload the zip by hand as described below.
+
 ## Prerequisites
 
 - A [Firefox Add-ons Developer Hub](https://addons.mozilla.org/developers/) account
@@ -44,7 +90,7 @@ bash scripts/verify-package.sh
 4. Open DevTools and select the **Decipher JZB** panel
 5. Open the **Network** tab at least once, then verify auto-capture and theme switching
 
-## Submit to AMO
+## Submit to AMO manually
 
 1. Open the [Add-ons Developer Hub](https://addons.mozilla.org/developers/)
 2. Click **Submit a New Add-on** (or update an existing listing)
@@ -67,4 +113,5 @@ Before each release:
 1. Run `npm run version:patch`, `npm run version:minor`, or `npm run version:major`
 2. Update `CHANGELOG.md`
 3. Run `npm test` and `npm run package`
-4. Commit, tag the release (`v1.2.1`), and upload the new zip to AMO
+4. Commit and tag the release (`v1.2.1`). Merging the pull request submits the new zip to AMO
+   automatically; upload it by hand only when using the fallback above

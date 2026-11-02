@@ -1,4 +1,4 @@
-name: Publish Chrome Web Store
+name: Publish stores
 
 on:
   pull_request:
@@ -32,7 +32,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/should-publish.mjs
 
-  publish:
+  publish-chrome:
     needs: changes
     if: needs.changes.outputs.publish == 'true'
     name: Publish Chrome Web Store release
@@ -186,3 +186,67 @@ jobs:
             exit 1
           fi
           cat publish.json
+
+  publish-firefox:
+    needs: changes
+    if: needs.changes.outputs.publish == 'true'
+    name: Publish Firefox Add-ons release
+    runs-on: ubuntu-latest
+    environment: firefox-addons
+    permissions:
+      contents: read
+    concurrency:
+      group: firefox-addons-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check-version
+      - run: npm run package
+      - name: Verify package contents
+        run: bash scripts/verify-package.sh
+      - name: Lint with web-ext
+        run: npx --yes web-ext@10.8.0 lint --source-dir dist/jzb-decoder
+      - name: Submit to Firefox Add-ons
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          ADDON_ID: ${{ vars.AMO_ADDON_ID }}
+        run: node scripts/publish-firefox-addons.mjs
+
+  publish-edge:
+    needs: changes
+    if: needs.changes.outputs.publish == 'true'
+    name: Publish Microsoft Edge Add-ons release
+    runs-on: ubuntu-latest
+    environment: edge-addons
+    permissions:
+      contents: read
+    concurrency:
+      group: edge-addons-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check-version
+      - run: npm run package
+      - name: Verify package contents
+        run: bash scripts/verify-package.sh
+      - name: Submit to Microsoft Edge Add-ons
+        env:
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
+        run: node scripts/publish-edge-addons.mjs
