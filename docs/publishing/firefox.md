@@ -27,10 +27,10 @@ The job:
    the version with the matching `CHANGELOG.md` section as the release notes. The job fails instead of submitting
    when that section is empty.
 
-A concurrency group (`firefox-addons-publish`) serializes runs. The job checks out the latest `main` rather than
-the merge commit of the run that started it, so a delayed run still submits the newest version. A failure here
-does not affect the Chrome or Edge jobs. API error bodies are printed in the logs. Source code upload is not
-needed: the package is plain, unminified JavaScript.
+A concurrency group (`firefox-addons-publish`) serializes runs. All three store jobs of a run check out the same
+`main` revision, resolved once by the `changes` job, so the stores never receive different versions from one run.
+A failure here does not affect the Chrome or Edge jobs. API error bodies are printed in the logs. Source code
+upload is not needed: the package is plain, unminified JavaScript.
 
 ### Required configuration
 

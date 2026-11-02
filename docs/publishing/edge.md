@@ -26,8 +26,8 @@ anything to submit. If the publish call fails with `InProgressSubmission` (a sub
 pending review is never replaced. The package has already been uploaded to the draft by then, so the draft can
 change even when nothing is submitted. If the upload step itself fails, the job fails. Any other failure also fails
 the job and prints the operation details. A failure here does not affect the Chrome or Firefox jobs. A
-concurrency group (`edge-addons-publish`) serializes runs. The job checks out the latest `main` rather than the
-merge commit of the run that started it, so a delayed run still submits the newest version.
+concurrency group (`edge-addons-publish`) serializes runs. All three store jobs of a run check out the same `main`
+revision, resolved once by the `changes` job, so the stores never receive different versions from one run.
 
 ### Required configuration
 
