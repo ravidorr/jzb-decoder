@@ -6,6 +6,9 @@ and the regular CI workflow is unchanged. The workflow uses the `pull_request_ta
 requests from forks can publish too: it runs the workflow file from `main`, only after the merge, and every job checks
 out one `main` revision (resolved once per run), never pull request code.
 
+The workflow can also be started by hand (Actions, Run workflow) to retry the current `main` after a skipped or
+failed submission. Every store skips a version it already has, so a retry is safe.
+
 The same workflow also submits to Firefox Add-ons and Microsoft Edge Add-ons, using the same `changes` job and
 package. Each store has its own job, so a failure in one does not block the others. See
 [firefox.md](firefox.md) and [edge.md](edge.md).

@@ -24,7 +24,9 @@ The Publish API cannot read the store version or submission state, so the store 
 anything to submit. If the publish call fails with `InProgressSubmission` (a submission is already in review) or
 `NoModulesUpdated` (the store already has this package), the script prints a warning and exits successfully, so a
 pending review is never replaced. The package has already been uploaded to the draft by then, so the draft can
-change even when nothing is submitted. If the upload step itself fails, the job fails. Any other failure also fails
+change even when nothing is submitted. Once the review has finished, start the **Publish stores** workflow
+manually (Actions, Run workflow) to submit the version that was skipped: it publishes the current `main`, and
+every store skips a version it already has. If the upload step itself fails, the job fails. Any other failure also fails
 the job and prints the operation details. A failure here does not affect the Chrome or Firefox jobs. A
 concurrency group (`edge-addons-publish`) serializes runs. All three store jobs of a run check out the same `main`
 revision, resolved once by the `changes` job, so the stores never receive different versions from one run.

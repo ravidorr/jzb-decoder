@@ -132,7 +132,7 @@ function finish(operation, manifestVersion, step) {
 
   if (reason) {
     process.stdout.write(
-      `::warning::Microsoft Edge Add-ons did not receive ${manifestVersion}: ${reason}. The next release that changes the extension submits the then-current version.\n`
+      `::warning::Microsoft Edge Add-ons did not receive ${manifestVersion}: ${reason}. Re-run the Publish stores workflow (Actions, Run workflow) once the review has finished.\n`
     );
 
     return { published: false, manifestVersion };
