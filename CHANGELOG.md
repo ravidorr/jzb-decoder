@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-11-02
+
+### Changed
+
+- Added job timeouts to the change detection and Chrome Web Store publish jobs so a hung request cannot block the
+  serialized store publishing
+- Added a two-minute `--max-time` to every Chrome Web Store API request in the publish job so a hung request fails
+  fast
+
 ## [1.2.5] - 2026-11-02
 
 ### Added

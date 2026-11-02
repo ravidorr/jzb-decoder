@@ -23,6 +23,7 @@ jobs:
       (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
     name: Detect shipped changes
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       publish: ${{ steps.should-publish.outputs.publish || steps.dispatch.outputs.publish }}
       revision: ${{ steps.revision.outputs.sha }}
@@ -55,6 +56,7 @@ jobs:
     if: needs.changes.outputs.publish == 'true'
     name: Publish Chrome Web Store release
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
@@ -107,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           item_name="publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}"
-          if ! curl --fail-with-body --silent --show-error \
+          if ! curl --fail-with-body --silent --show-error --max-time 120 \
             --header "Authorization: Bearer ${ACCESS_TOKEN}" \
             "https://chromewebstore.googleapis.com/v2/${item_name}:fetchStatus" \
             --output item-status.json; then
@@ -118,7 +120,7 @@ jobs:
           submission_state="$(jq -r '.submittedItemRevisionStatus.state // empty' item-status.json)"
           case "${submission_state}" in
             PENDING_REVIEW|STAGED)
-              if ! curl --fail-with-body --silent --show-error --request POST \
+              if ! curl --fail-with-body --silent --show-error --max-time 120 --request POST \
                 --header "Authorization: Bearer ${ACCESS_TOKEN}" \
                 "https://chromewebstore.googleapis.com/v2/${item_name}:cancelSubmission" \
                 --output cancel.json; then
@@ -144,7 +146,7 @@ jobs:
         run: |
           set -euo pipefail
           item_name="publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}"
-          if ! curl --fail-with-body --silent --show-error --request POST \
+          if ! curl --fail-with-body --silent --show-error --max-time 120 --request POST \
             --header "Authorization: Bearer ${ACCESS_TOKEN}" \
             --upload-file dist/jzb-decoder.zip \
             "https://chromewebstore.googleapis.com/upload/v2/${item_name}:upload" \
@@ -164,7 +166,7 @@ jobs:
           fi
           for attempt in $(seq 1 30); do
             sleep 10
-            if ! curl --fail-with-body --silent --show-error \
+            if ! curl --fail-with-body --silent --show-error --max-time 120 \
               --header "Authorization: Bearer ${ACCESS_TOKEN}" \
               "https://chromewebstore.googleapis.com/v2/${item_name}:fetchStatus" \
               --output upload-status.json; then
@@ -193,7 +195,7 @@ jobs:
         run: |
           set -euo pipefail
           item_name="publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}"
-          if ! curl --fail-with-body --silent --show-error --request POST \
+          if ! curl --fail-with-body --silent --show-error --max-time 120 --request POST \
             --header "Authorization: Bearer ${ACCESS_TOKEN}" \
             --header "Content-Type: application/json" \
             --data '{"publishType":"DEFAULT_PUBLISH","skipReview":false,"blockOnWarnings":true}' \
