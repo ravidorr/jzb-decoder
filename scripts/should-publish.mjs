@@ -65,7 +65,7 @@ function runCli() {
   });
 
   if (!result) {
-    process.stdout.write('::notice::No shipped extension files changed; skipping Chrome Web Store publish.\n');
+    process.stdout.write('::notice::No shipped extension files changed; skipping store publish.\n');
   }
 
   if (process.env.GITHUB_OUTPUT) {

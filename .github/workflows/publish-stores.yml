@@ -1,9 +1,16 @@
-name: Publish Chrome Web Store
+name: Publish stores
 
 on:
-  pull_request:
+  # pull_request_target, not pull_request: runs for merged pull requests from forks get secrets and an OIDC token
+  # only this way. It is safe here because the workflow file always comes from main, the jobs run only after the
+  # merge, and every job checks out one revision of main, never pull request code. The pull request head is
+  # fetched, not checked out, only so that scripts/should-publish.mjs can diff file names and read manifest.json.
+  pull_request_target:
     types: [closed]
     branches: [main]
+  # Manual retry, for example after an Edge review that blocked a submission has finished. Every store job skips
+  # a version the store already has, so re-running is safe.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,28 +18,39 @@ permissions:
 jobs:
   changes:
     # Decides whether the merged pull request changed anything the extension ships.
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
     name: Detect shipped changes
     runs-on: ubuntu-latest
     outputs:
-      publish: ${{ steps.should-publish.outputs.publish }}
+      publish: ${{ steps.should-publish.outputs.publish || steps.dispatch.outputs.publish }}
+      revision: ${{ steps.revision.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: main
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
+      # One revision per run: all store jobs build this exact commit, so they never submit different versions.
+      - id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "publish=true" >> "$GITHUB_OUTPUT"
       - name: Fetch the pull request head
+        if: github.event_name != 'workflow_dispatch'
         run: git fetch --no-tags origin "refs/pull/${{ github.event.pull_request.number }}/head"
       - id: should-publish
+        if: github.event_name != 'workflow_dispatch'
         env:
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/should-publish.mjs
 
-  publish:
+  publish-chrome:
     needs: changes
     if: needs.changes.outputs.publish == 'true'
     name: Publish Chrome Web Store release
@@ -50,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ needs.changes.outputs.revision }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -186,3 +204,73 @@ jobs:
             exit 1
           fi
           cat publish.json
+
+  publish-firefox:
+    needs: changes
+    if: needs.changes.outputs.publish == 'true'
+    name: Publish Firefox Add-ons release
+    runs-on: ubuntu-latest
+    environment: firefox-addons
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    concurrency:
+      group: firefox-addons-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.changes.outputs.revision }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check-version
+      - run: npm run package
+      - name: Verify package contents
+        run: bash scripts/verify-package.sh
+      # Lints a copy of the package that this same job then submits. The AMO secrets are only passed to the
+      # submit step below, never to this one.
+      - name: Lint with web-ext
+        run: |
+          cp -R dist/jzb-decoder "${RUNNER_TEMP}/web-ext-source"
+          npx --yes web-ext@10.8.0 lint --source-dir "${RUNNER_TEMP}/web-ext-source"
+      - name: Submit to Firefox Add-ons
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          ADDON_ID: ${{ vars.AMO_ADDON_ID }}
+        run: node scripts/publish-firefox-addons.mjs
+
+  publish-edge:
+    needs: changes
+    if: needs.changes.outputs.publish == 'true'
+    name: Publish Microsoft Edge Add-ons release
+    runs-on: ubuntu-latest
+    environment: edge-addons
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    concurrency:
+      group: edge-addons-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.changes.outputs.revision }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check-version
+      - run: npm run package
+      - name: Verify package contents
+        run: bash scripts/verify-package.sh
+      - name: Submit to Microsoft Edge Add-ons
+        env:
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
+        run: node scripts/publish-edge-addons.mjs

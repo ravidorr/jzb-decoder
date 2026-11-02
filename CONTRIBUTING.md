@@ -55,8 +55,9 @@ npm run redact-screenshot -- path/to/raw-capture.png docs/screenshots/output.png
   commit. The bump script does not update them.
 - Every pull request requires one SemVer bump and a non-empty matching `CHANGELOG.md` entry, except Dependabot
   pull requests.
-- Merged pull requests that change shipped extension files are submitted to the Chrome Web Store automatically.
-  See [docs/publishing/chrome.md](docs/publishing/chrome.md).
+- Merged pull requests that change shipped extension files are submitted to the Chrome Web Store, Firefox
+  Add-ons, and Microsoft Edge Add-ons automatically. See [docs/publishing/chrome.md](docs/publishing/chrome.md),
+  [docs/publishing/firefox.md](docs/publishing/firefox.md), and [docs/publishing/edge.md](docs/publishing/edge.md).
 
 ## Pull requests
 

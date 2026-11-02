@@ -25,7 +25,8 @@ DevTools extension for decoding jzb URL payloads in Chrome, Edge, and Firefox.
 - New UI work uses the tokens and components in `/design-system`. Migrate existing values when modifying their UI.
 - Pin Node via `.nvmrc`; package manager is `npm`. Keep `package-lock.json` committed.
 - Every PR updates `CHANGELOG.md` and bumps the version (one SemVer bump per PR), except Dependabot PRs.
-  Merged PRs that change shipped extension files are submitted to the Chrome Web Store automatically.
+  Merged PRs that change shipped extension files are submitted to the Chrome Web Store, Firefox Add-ons, and
+  Microsoft Edge Add-ons automatically.
 - Track open work in `TODO.md`.
 
 ## Layout
