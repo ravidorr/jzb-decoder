@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-11-09
+
+### Changed
+
+- Bumped dev tooling `stylelint` to 18.0.0 and `stylelint-config-standard` to 41.0.0 (which requires stylelint 18); no
+  change to the shipped extension
+
 ## [1.2.6] - 2026-11-02
 
 ### Changed
